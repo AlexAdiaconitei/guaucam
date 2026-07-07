@@ -1,0 +1,971 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>GuauCam — private camera for watching your dogs</title>
+  <meta name="description" content="GuauCam turns a Raspberry Pi Zero W and a camera (USB webcam or CSI module) into a private dashboard with live video, a noise meter and Telegram alerts when your dogs bark too much.">
+  <link rel="icon" type="image/png" href="logo.png">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/dist/tabler-icons.min.css">
+  <style>
+    :root{
+      --noche:#06162e;
+      --noche-2:#0b2345;
+      --tinta:#10233f;
+      --crema:#fff8e8;
+      --pelaje:#f6b957;
+      --verde:#4f9349;
+      --verde-brillo:#74c365;
+      --peligro:#e1543f;
+      --linea:rgba(255,248,232,.18);
+      --sombra:0 24px 70px rgba(0,0,0,.38);
+      --radio:30px;
+    }
+
+    *{box-sizing:border-box}
+
+    html{scroll-behavior:smooth;background:var(--noche)}
+
+    body{
+      margin:0;
+      color:var(--crema);
+      font-family:"Trebuchet MS","Segoe UI",system-ui,sans-serif;
+      background:
+        radial-gradient(circle at 8% 4%, rgba(246,185,87,.32), transparent 28rem),
+        radial-gradient(circle at 92% 0%, rgba(79,147,73,.36), transparent 26rem),
+        linear-gradient(145deg, var(--noche), var(--noche-2) 55%, #06101f);
+      line-height:1.55;
+    }
+
+    body::before{
+      content:"";
+      position:fixed;
+      inset:0;
+      pointer-events:none;
+      opacity:.14;
+      background-image:
+        linear-gradient(90deg, rgba(255,255,255,.06) 1px, transparent 1px),
+        linear-gradient(rgba(255,255,255,.05) 1px, transparent 1px);
+      background-size:42px 42px;
+      mask-image:linear-gradient(to bottom, #000, transparent 78%);
+    }
+
+    a{color:inherit;text-decoration:none}
+    code{font-family:"Cascadia Mono","SFMono-Regular",Consolas,monospace}
+
+    .ti{
+      flex:0 0 auto;
+      line-height:1;
+    }
+
+    .icon-label{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+    }
+
+    .section-icon{
+      color:var(--pelaje);
+      filter:drop-shadow(0 6px 16px rgba(246,185,87,.22));
+    }
+
+    .nav-links .ti,
+    .button .ti,
+    .pill .ti{
+      font-size:1.05rem;
+    }
+
+    h2 .ti{
+      font-size:.72em;
+    }
+
+    .section-card h3 .ti,
+    .step h3 .ti,
+    .node strong .ti,
+    .url-card strong .ti,
+    .note strong .ti{
+      font-size:1.2em;
+    }
+
+    .page{
+      width:min(1120px, 100%);
+      margin:0 auto;
+      padding:clamp(18px, 4vw, 46px);
+      position:relative;
+    }
+
+    .nav{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:18px;
+      margin-bottom:clamp(34px, 8vw, 92px);
+    }
+
+    .mark{
+      display:flex;
+      align-items:center;
+      gap:12px;
+      font-weight:900;
+      letter-spacing:-.04em;
+      font-size:1.3rem;
+    }
+
+    .mark img{
+      width:54px;
+      height:54px;
+      object-fit:cover;
+      object-position:top center;
+      border-radius:34% 66% 35% 65% / 58% 36% 64% 42%;
+      border:2px solid rgba(255,248,232,.9);
+      background:#fff;
+      box-shadow:0 0 0 6px rgba(246,185,87,.14), 0 14px 34px rgba(0,0,0,.32);
+    }
+
+    .nav-tools{
+      display:flex;
+      align-items:center;
+      justify-content:flex-end;
+      gap:10px;
+      flex-wrap:wrap;
+    }
+
+    .language-switch{
+      display:inline-flex;
+      align-items:center;
+      padding:3px;
+      border:1px solid var(--linea);
+      border-radius:999px;
+      background:rgba(255,248,232,.07);
+    }
+
+    .lang-button{
+      min-width:42px;
+      border:0;
+      border-radius:999px;
+      padding:7px 10px;
+      color:rgba(255,248,232,.72);
+      background:transparent;
+      font:900 .78rem/1 "Trebuchet MS","Segoe UI",system-ui,sans-serif;
+      letter-spacing:.08em;
+      cursor:pointer;
+    }
+
+    .lang-button:hover,
+    .lang-button:focus-visible{
+      color:#fff;
+      outline:none;
+    }
+
+    .lang-button.is-active{
+      color:#06162e;
+      background:linear-gradient(135deg, var(--pelaje), #ffe08a);
+    }
+
+    .nav-links{
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+      justify-content:flex-end;
+    }
+
+    .nav-links a,
+    .pill{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding:9px 12px;
+      border:1px solid var(--linea);
+      border-radius:999px;
+      color:rgba(255,248,232,.78);
+      background:rgba(255,248,232,.07);
+      font-size:.88rem;
+      font-weight:800;
+    }
+
+    .nav-links a:hover,
+    .nav-links a:focus-visible{
+      color:#fff;
+      border-color:rgba(246,185,87,.5);
+      outline:none;
+    }
+
+    .hero{
+      display:grid;
+      grid-template-columns:minmax(0, 1fr) minmax(260px, 390px);
+      gap:clamp(24px, 5vw, 58px);
+      align-items:center;
+      margin-bottom:clamp(44px, 10vw, 110px);
+    }
+
+    .eyebrow{
+      margin:0 0 12px;
+      color:#9ed490;
+      font-size:.78rem;
+      font-weight:900;
+      letter-spacing:.18em;
+      text-transform:uppercase;
+    }
+
+    h1,
+    h2,
+    h3,
+    p{margin-top:0}
+
+    h1{
+      max-width:12ch;
+      margin-bottom:22px;
+      color:#fffaf0;
+      font-size:clamp(3.2rem, 11vw, 8.4rem);
+      line-height:.84;
+      letter-spacing:-.085em;
+      text-wrap:balance;
+    }
+
+    .hero-copy{
+      max-width:58rem;
+      color:rgba(255,248,232,.82);
+      font-size:clamp(1.06rem, 2.1vw, 1.32rem);
+    }
+
+    .hero-actions{
+      display:flex;
+      gap:12px;
+      flex-wrap:wrap;
+      margin-top:28px;
+    }
+
+    .button{
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      min-height:48px;
+      padding:14px 18px;
+      border-radius:999px;
+      color:#06162e;
+      background:linear-gradient(135deg, var(--pelaje), #ffe08a);
+      box-shadow:0 12px 28px rgba(246,185,87,.26);
+      font-weight:900;
+    }
+
+    .button.secondary{
+      color:var(--crema);
+      background:rgba(255,248,232,.08);
+      border:1px solid var(--linea);
+      box-shadow:none;
+    }
+
+    .button:hover,.button:focus-visible{transform:translateY(-1px);outline:3px solid rgba(255,248,232,.22);outline-offset:3px}
+
+    .hero-card{
+      position:relative;
+      padding:clamp(18px, 3vw, 28px);
+      border:1px solid var(--linea);
+      border-radius:38px;
+      background:linear-gradient(180deg, rgba(255,248,232,.13), rgba(255,248,232,.06));
+      box-shadow:var(--sombra);
+      backdrop-filter:blur(18px);
+      overflow:hidden;
+    }
+
+    .hero-card::after,
+    .section-card::after{
+      content:"";
+      position:absolute;
+      inset:auto 22px 0;
+      height:4px;
+      border-radius:999px 999px 0 0;
+      background:linear-gradient(90deg, var(--pelaje), var(--verde-brillo));
+    }
+
+    .hero-logo{
+      display:block;
+      width:min(100%, 310px);
+      margin:0 auto 24px;
+      border-radius:34% 66% 35% 65% / 58% 36% 64% 42%;
+      border:3px solid rgba(255,248,232,.88);
+      box-shadow:0 0 0 10px rgba(246,185,87,.12), 0 22px 54px rgba(0,0,0,.34);
+      background:#fff;
+    }
+
+    .meter{
+      position:relative;
+      height:34px;
+      overflow:hidden;
+      border:1px solid rgba(255,248,232,.16);
+      border-radius:999px;
+      background:linear-gradient(90deg, rgba(255,248,232,.12), rgba(255,248,232,.05));
+      box-shadow:inset 0 2px 10px rgba(0,0,0,.28);
+    }
+
+    .meter span{
+      display:block;
+      width:62%;
+      height:100%;
+      border-radius:999px;
+      background:linear-gradient(90deg, rgba(255,255,255,.32), transparent 38%), linear-gradient(90deg, #ffae55, var(--peligro));
+      box-shadow:0 0 26px rgba(225,84,63,.52);
+    }
+
+    .meter i{
+      position:absolute;
+      top:0;
+      bottom:0;
+      left:52%;
+      width:4px;
+      border-radius:999px;
+      background:var(--pelaje);
+      box-shadow:0 0 0 4px rgba(246,185,87,.2), 0 0 18px rgba(246,185,87,.5);
+    }
+
+    .meter i::after{
+      content:"";
+      position:absolute;
+      top:50%;
+      left:50%;
+      width:20px;
+      height:20px;
+      transform:translate(-50%, -50%);
+      border:2px solid #06162e;
+      border-radius:50%;
+      background:var(--pelaje);
+    }
+
+    .live-row{
+      display:grid;
+      grid-template-columns:1fr auto;
+      gap:12px;
+      align-items:end;
+      margin-bottom:12px;
+    }
+
+    .db{
+      font-size:clamp(3rem, 7vw, 5rem);
+      font-weight:900;
+      letter-spacing:-.08em;
+      line-height:.85;
+    }
+
+    .unit{
+      color:rgba(255,248,232,.58);
+      font-weight:900;
+      letter-spacing:.14em;
+      text-transform:uppercase;
+    }
+
+    .section{
+      margin-bottom:clamp(42px, 8vw, 86px);
+    }
+
+    .section-head{
+      display:flex;
+      align-items:end;
+      justify-content:space-between;
+      gap:24px;
+      margin-bottom:18px;
+    }
+
+    h2{
+      margin-bottom:0;
+      color:#fffaf0;
+      font-size:clamp(2rem, 5vw, 4rem);
+      line-height:.9;
+      letter-spacing:-.065em;
+      text-wrap:balance;
+    }
+
+    .section-lead{
+      max-width:42rem;
+      color:rgba(255,248,232,.72);
+    }
+
+    .cards{
+      display:grid;
+      grid-template-columns:repeat(4, minmax(0, 1fr));
+      gap:14px;
+    }
+
+    .section-card,
+    .step,
+    .terminal,
+    .note{
+      position:relative;
+      overflow:hidden;
+      border:1px solid var(--linea);
+      border-radius:var(--radio);
+      background:linear-gradient(180deg, rgba(255,248,232,.12), rgba(255,248,232,.055));
+      box-shadow:0 16px 46px rgba(0,0,0,.24);
+      backdrop-filter:blur(16px);
+    }
+
+    .section-card{padding:22px}
+
+    .section-card h3,
+    .step h3{
+      margin-bottom:8px;
+      font-size:1.05rem;
+      letter-spacing:-.025em;
+    }
+
+    .section-card p,
+    .step p,
+    .note p,
+    li{color:rgba(255,248,232,.74)}
+
+    .flow{
+      display:grid;
+      grid-template-columns:repeat(5, minmax(0, 1fr));
+      gap:12px;
+      align-items:stretch;
+    }
+
+    .node{
+      min-height:122px;
+      padding:18px;
+      border:1px solid var(--linea);
+      border-radius:24px;
+      background:rgba(6,22,46,.5);
+    }
+
+    .node strong{display:flex;align-items:center;gap:8px;margin-bottom:8px;color:#fff}
+    .node small{color:rgba(255,248,232,.62);line-height:1.4}
+
+    .install-grid{
+      display:grid;
+      grid-template-columns:minmax(0, .92fr) minmax(0, 1.08fr);
+      gap:18px;
+      align-items:start;
+    }
+
+    .steps{display:grid;gap:12px}
+
+    .step{padding:20px 20px 20px 70px}
+
+    .step::before{
+      content:attr(data-step);
+      position:absolute;
+      top:20px;
+      left:20px;
+      width:34px;
+      height:34px;
+      display:grid;
+      place-items:center;
+      border-radius:50%;
+      color:#06162e;
+      background:var(--pelaje);
+      font-weight:900;
+    }
+
+    .terminal{
+      padding:20px;
+      background:linear-gradient(180deg, rgba(6,22,46,.92), rgba(6,16,31,.92));
+    }
+
+    .terminal-head{
+      display:flex;
+      align-items:center;
+      gap:7px;
+      margin-bottom:16px;
+    }
+
+    .dot{width:10px;height:10px;border-radius:50%;background:var(--peligro)}
+    .dot:nth-child(2){background:var(--pelaje)}
+    .dot:nth-child(3){background:var(--verde-brillo)}
+
+    pre{
+      margin:0;
+      white-space:pre-wrap;
+      word-break:break-word;
+      color:#fff;
+      font:700 .92rem/1.55 "Cascadia Mono","SFMono-Regular",Consolas,monospace;
+    }
+
+    .terminal em{color:#9ed490;font-style:normal}
+    .terminal .comment{color:rgba(255,248,232,.52)}
+
+    .requirements{
+      display:grid;
+      grid-template-columns:repeat(2, minmax(0, 1fr));
+      gap:12px;
+      margin-top:18px;
+    }
+
+    .req{
+      padding:16px;
+      border:1px solid var(--linea);
+      border-radius:22px;
+      background:rgba(255,248,232,.06);
+    }
+
+    .req strong{display:block;color:#fff;margin-bottom:4px}
+    .req span{color:rgba(255,248,232,.7)}
+
+    .usage{
+      display:grid;
+      grid-template-columns:repeat(3, minmax(0, 1fr));
+      gap:14px;
+    }
+
+    .url-card{
+      padding:20px;
+      border:1px solid var(--linea);
+      border-radius:24px;
+      background:rgba(6,22,46,.5);
+    }
+
+    .url-card code{
+      display:block;
+      margin-bottom:10px;
+      color:#ffe08a;
+      font-weight:900;
+      word-break:break-word;
+    }
+
+    .note{
+      padding:20px;
+      border-color:rgba(246,185,87,.28);
+    }
+
+    .note strong{color:#ffe08a}
+
+    .footer{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:18px;
+      padding:26px 0 10px;
+      color:rgba(255,248,232,.58);
+      border-top:1px solid var(--linea);
+    }
+
+    @media (max-width:900px){
+      .hero,.install-grid{grid-template-columns:1fr}
+      .cards,.flow,.usage{grid-template-columns:1fr 1fr}
+      .section-head{display:block}
+      .nav{align-items:flex-start;flex-direction:column}
+      .nav-tools,.nav-links{justify-content:flex-start}
+    }
+
+    @media (max-width:620px){
+      .page{padding:18px}
+      .hero{gap:22px}
+      .cards,.flow,.usage,.requirements{grid-template-columns:1fr}
+      .mark img{width:48px;height:48px}
+      .nav-links a,.lang-button{font-size:.82rem}
+      .step{padding-left:62px}
+      h1{font-size:clamp(3rem, 22vw, 5.2rem)}
+      .hero-actions .button{width:100%}
+      .footer{display:block}
+    }
+
+    @media (prefers-reduced-motion:reduce){
+      html{scroll-behavior:auto}
+      *,*::before,*::after{transition:none!important}
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <nav class="nav" aria-label="Main navigation" data-i18n-aria="navAria">
+      <a class="mark" href="#top" aria-label="GuauCam home" data-i18n-aria="homeAria">
+        <img src="guaucam.webp" alt="">
+        <span>GuauCam</span>
+      </a>
+      <div class="nav-tools">
+        <div class="nav-links">
+          <a href="#how-it-works"><i class="ti ti-route section-icon" aria-hidden="true"></i><span data-i18n="navHow">How it works</span></a>
+          <a href="#install"><i class="ti ti-download section-icon" aria-hidden="true"></i><span data-i18n="navInstall">Install</span></a>
+          <a href="#usage"><i class="ti ti-device-mobile section-icon" aria-hidden="true"></i><span data-i18n="navUsage">Use</span></a>
+          <a href="#configuration"><i class="ti ti-adjustments section-icon" aria-hidden="true"></i><span data-i18n="navConfigure">Configure</span></a>
+        </div>
+        <div class="language-switch" aria-label="Language" data-i18n-aria="languageAria">
+          <button class="lang-button is-active" type="button" data-lang="en" aria-pressed="true">EN</button>
+          <button class="lang-button" type="button" data-lang="es" aria-pressed="false">ES</button>
+        </div>
+      </div>
+    </nav>
+
+    <main id="top">
+      <section class="hero" aria-labelledby="hero-title">
+        <div>
+          <p class="eyebrow" data-i18n="eyebrow">Private camera + bark detector</p>
+          <h1 id="hero-title" data-i18n="heroTitle">Check that they are okay.</h1>
+          <p class="hero-copy" data-i18n="heroCopy">GuauCam turns a Raspberry Pi Zero W and a camera (USB webcam or CSI module) into a private dashboard with live video, a noise meter and Telegram alerts when your dogs bark too much.</p>
+          <div class="hero-actions">
+            <a class="button" href="#install"><i class="ti ti-download" aria-hidden="true"></i><span data-i18n="ctaInstall">Install on the Pi</span></a>
+            <a class="button secondary" href="#how-it-works"><i class="ti ti-sitemap section-icon" aria-hidden="true"></i><span data-i18n="ctaArchitecture">See the architecture</span></a>
+          </div>
+        </div>
+
+        <aside class="hero-card" aria-label="GuauCam dashboard preview" data-i18n-aria="previewAria">
+          <img class="hero-logo" src="guaucam.webp" alt="GuauCam logo" data-i18n-alt="logoAlt">
+          <div class="live-row">
+            <span class="db">-24.0</span>
+            <span class="unit">dB</span>
+          </div>
+          <div class="meter" aria-hidden="true"><span></span><i></i></div>
+          <p style="margin:14px 0 0;color:rgba(255,248,232,.68)" data-i18n="meterCopy">The yellow mark is your threshold. If the bar stays above it for several seconds, you get an alert.</p>
+        </aside>
+      </section>
+
+      <section class="section" aria-labelledby="summary-title">
+        <div class="cards">
+          <article class="section-card">
+            <h3 class="icon-label"><i class="ti ti-video section-icon" aria-hidden="true"></i><span data-i18n="cardVideoTitle">Video without recompression</span></h3>
+            <p data-i18n="cardVideoCopy">The USB webcam outputs MJPEG and the Pi forwards it; with a CSI module, the hardware encoder compresses it. The CPU never transcodes, which matters on a Zero W.</p>
+          </article>
+          <article class="section-card">
+            <h3 class="icon-label"><i class="ti ti-microphone-off section-icon" aria-hidden="true"></i><span data-i18n="cardAudioTitle">Audio stays at home</span></h3>
+            <p data-i18n="cardAudioCopy">The microphone is only measured for volume. It is not transmitted, not stored and has no history.</p>
+          </article>
+          <article class="section-card">
+            <h3 class="icon-label"><i class="ti ti-bell-ringing section-icon" aria-hidden="true"></i><span data-i18n="cardAlertsTitle">Useful alerts</span></h3>
+            <p data-i18n="cardAlertsCopy">If noise crosses the threshold for the configured time, Telegram receives a message and photo.</p>
+          </article>
+          <article class="section-card">
+            <h3 class="icon-label"><i class="ti ti-shield-lock section-icon" aria-hidden="true"></i><span data-i18n="cardPrivateTitle">Private access</span></h3>
+            <p data-i18n="cardPrivateCopy">Use it through Tailscale or your LAN. Nothing is exposed to the internet and no router ports are opened.</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="section" id="how-it-works" aria-labelledby="works-title">
+        <div class="section-head">
+          <h2 id="works-title" class="icon-label"><i class="ti ti-route section-icon" aria-hidden="true"></i><span data-i18n="worksTitle">How it works</span></h2>
+          <p class="section-lead" data-i18n="worksLead">A deliberately simple flow: the camera does the heavy work, the Pi serves video and measures noise, and your phone only opens a private URL.</p>
+        </div>
+        <div class="flow" aria-label="GuauCam technical flow" data-i18n-aria="flowAria">
+          <div class="node"><strong><i class="ti ti-camera section-icon" aria-hidden="true"></i><span data-i18n="flowCameraTitle">USB or CSI camera</span></strong><small data-i18n="flowCameraCopy">C920/C922 webcam (native MJPEG + microphone) or a ribbon module such as Pi Camera.</small></div>
+          <div class="node"><strong><i class="ti ti-broadcast section-icon" aria-hidden="true"></i><span data-i18n="flowStreamerTitle">Streamer</span></strong><small data-i18n="flowStreamerCopy">ustreamer (USB) or picamera2 (CSI) publish the HTTP stream on port 8080.</small></div>
+          <div class="node"><strong><i class="ti ti-wave-sine section-icon" aria-hidden="true"></i><span data-i18n="flowDetectorTitle">Noise detector</span></strong><small data-i18n="flowDetectorCopy">Measures dBFS, applies threshold, sustained duration and cooldown.</small></div>
+          <div class="node"><strong><i class="ti ti-dashboard section-icon" aria-hidden="true"></i><span data-i18n="flowPanelTitle">Web panel</span></strong><small data-i18n="flowPanelCopy">Video, live meter and settings applied immediately.</small></div>
+          <div class="node"><strong><i class="ti ti-brand-telegram section-icon" aria-hidden="true"></i><span data-i18n="flowTelegramTitle">Telegram</span></strong><small data-i18n="flowTelegramCopy">Alert with photo when barking runs too long.</small></div>
+        </div>
+      </section>
+
+      <section class="section" id="install" aria-labelledby="install-title">
+        <div class="section-head">
+          <h2 id="install-title" class="icon-label"><i class="ti ti-download section-icon" aria-hidden="true"></i><span data-i18n="installTitle">Installation</span></h2>
+          <p class="section-lead" data-i18n-html="installLead">The installer detects your camera (and asks if there are several), sets up systemd services, Tailscale, the streamer and the base configuration. Running it again updates the code without touching <code>/etc/guaucam.conf</code>.</p>
+        </div>
+
+        <div class="install-grid">
+          <div>
+            <span class="pill"><i class="ti ti-list-check section-icon" aria-hidden="true"></i><span data-i18n="beforeStart">Before you start</span></span>
+            <div class="requirements">
+              <div class="req"><strong>Raspberry Pi Zero W v1</strong><span data-i18n="reqPi">Raspberry Pi OS Lite 32-bit Bookworm, SSH enabled and WiFi.</span></div>
+              <div class="req"><strong data-i18n="reqCameraTitle">USB or CSI camera</strong><span data-i18n="reqCameraCopy">UVC webcam with MJPEG (C920/C922) or OV5647/Pi Camera ribbon module. The installer detects what you have.</span></div>
+              <div class="req"><strong data-i18n="reqTailscaleTitle">Tailscale account</strong><span data-i18n="reqTailscaleCopy">App installed on the phone or PC where you will watch the panel.</span></div>
+              <div class="req"><strong data-i18n="reqTelegramTitle">Telegram bot</strong><span data-i18n="reqTelegramCopy">Only for alerts. Talk to @BotFather and save the token.</span></div>
+            </div>
+          </div>
+
+          <div class="terminal" aria-label="Installation commands" data-i18n-aria="installCommandsAria">
+            <div class="terminal-head"><span class="dot"></span><span class="dot"></span><span class="dot"></span></div>
+            <pre><span class="comment" data-i18n="terminalBot"># 1. In Telegram: /newbot with @BotFather</span>
+<span class="comment" data-i18n="terminalMessage"># 2. Send any message to your new bot</span>
+
+<em>curl</em> -fsSL https://github.com/AlexAdiaconitei/guaucam/raw/main/install.sh | sudo bash
+
+<span class="comment" data-i18n="terminalUpdate"># Update later:</span>
+sudo bash /opt/guaucam/install.sh</pre>
+          </div>
+        </div>
+
+        <div class="steps" style="margin-top:18px">
+          <article class="step" data-step="1"><h3 class="icon-label"><i class="ti ti-robot section-icon" aria-hidden="true"></i><span data-i18n="stepBotTitle">Create the bot</span></h3><p data-i18n-html="stepBotCopy">In Telegram, talk to <strong>@BotFather</strong>, send <code>/newbot</code> and save the token. Then write any message to the bot so the installer can detect your <code>chat_id</code>.</p></article>
+          <article class="step" data-step="2"><h3 class="icon-label"><i class="ti ti-terminal-2 section-icon" aria-hidden="true"></i><span data-i18n="stepInstallTitle">Run the installer</span></h3><p data-i18n-html="stepInstallCopy">Over SSH, launch the installation command. It downloads dependencies, clones the repo into <code>/opt/guaucam</code> and prepares the services.</p></article>
+          <article class="step" data-step="3"><h3 class="icon-label"><i class="ti ti-network section-icon" aria-hidden="true"></i><span data-i18n="stepTailscaleTitle">Authorize Tailscale</span></h3><p data-i18n="stepTailscaleCopy">The installer will show a URL. Open it once to add the Pi to your tailnet.</p></article>
+          <article class="step" data-step="4"><h3 class="icon-label"><i class="ti ti-message-check section-icon" aria-hidden="true"></i><span data-i18n="stepPanelTitle">Save Telegram and open the panel</span></h3><p data-i18n="stepPanelCopy">Enter the bot token when asked. At the end you will see the access URLs and receive a test message.</p></article>
+        </div>
+      </section>
+
+      <section class="section" id="usage" aria-labelledby="usage-title">
+        <div class="section-head">
+          <h2 id="usage-title" class="icon-label"><i class="ti ti-device-mobile section-icon" aria-hidden="true"></i><span data-i18n="usageTitle">Daily use</span></h2>
+          <p class="section-lead" data-i18n="usageLead">With Tailscale active, open these URLs from your phone or PC. They also work with the Tailscale IP instead of the name.</p>
+        </div>
+        <div class="usage">
+          <article class="url-card"><code>http://&lt;pi-name&gt;:8081/</code><strong class="icon-label"><i class="ti ti-dashboard section-icon" aria-hidden="true"></i><span data-i18n="urlPanelTitle">Panel</span></strong><p data-i18n="urlPanelCopy">Video, noise level and detector settings.</p></article>
+          <article class="url-card"><code>http://&lt;pi-name&gt;:8080/</code><strong class="icon-label"><i class="ti ti-video section-icon" aria-hidden="true"></i><span data-i18n="urlStreamTitle">Stream</span></strong><p data-i18n="urlStreamCopy">Live video only, without controls.</p></article>
+          <article class="url-card"><code>http://&lt;pi-name&gt;:8080/snapshot</code><strong class="icon-label"><i class="ti ti-photo section-icon" aria-hidden="true"></i><span data-i18n="urlSnapshotTitle">Snapshot</span></strong><p data-i18n="urlSnapshotCopy">Instant capture for alerts or checks.</p></article>
+        </div>
+      </section>
+
+      <section class="section" id="configuration" aria-labelledby="config-title">
+        <div class="section-head">
+          <h2 id="config-title" class="icon-label"><i class="ti ti-adjustments section-icon" aria-hidden="true"></i><span data-i18n="configTitle">Calibrate without restarting</span></h2>
+          <p class="section-lead" data-i18n-html="configLead">The panel adjusts threshold, sustained duration, cooldown and Telegram immediately. The rest of the configuration lives in <code>/etc/guaucam.conf</code>.</p>
+        </div>
+        <div class="install-grid">
+          <div class="note">
+            <strong class="icon-label"><i class="ti ti-gauge section-icon" aria-hidden="true"></i><span data-i18n="calibrationTitle">First calibration</span></strong>
+            <ol>
+              <li data-i18n-html="calibrationOne">Open the panel on <code>:8081</code>.</li>
+              <li data-i18n="calibrationTwo">Watch where the bar sits with normal home noise.</li>
+              <li data-i18n="calibrationThree">Make noise or wait for barking and see how high it rises.</li>
+              <li data-i18n="calibrationFour">Drag the yellow threshold between both levels and save.</li>
+            </ol>
+          </div>
+          <div class="terminal">
+            <div class="terminal-head"><span class="dot"></span><span class="dot"></span><span class="dot"></span></div>
+            <pre><span class="comment" data-i18n="terminalStatus"># Service status</span>
+systemctl status guaucam-stream guaucam-detector
+
+<span class="comment" data-i18n="terminalLogs"># Live logs</span>
+journalctl -u guaucam-stream -u guaucam-detector -f
+
+<span class="comment" data-i18n="terminalRestart"># Restart after advanced configuration edits</span>
+sudo systemctl restart guaucam-stream guaucam-detector</pre>
+          </div>
+        </div>
+      </section>
+
+      <section class="section" aria-labelledby="limits-title">
+        <div class="section-head">
+          <h2 id="limits-title" class="icon-label"><i class="ti ti-alert-triangle section-icon" aria-hidden="true"></i><span data-i18n="limitsTitle">Clear limits</span></h2>
+          <p class="section-lead" data-i18n="limitsLead">Designed for live watching and volume alerts, not recording, classifying audio or replacing a commercial cloud camera.</p>
+        </div>
+        <div class="cards">
+          <article class="section-card"><h3 class="icon-label"><i class="ti ti-history-off section-icon" aria-hidden="true"></i><span data-i18n="limitHistoryTitle">No history</span></h3><p data-i18n="limitHistoryCopy">There is no recording. The system is live viewing and one-off alerts.</p></article>
+          <article class="section-card"><h3 class="icon-label"><i class="ti ti-volume-off section-icon" aria-hidden="true"></i><span data-i18n="limitAudioTitle">No remote audio</span></h3><p data-i18n="limitAudioCopy">Audio is measured and discarded. It is never retransmitted or stored.</p></article>
+          <article class="section-card"><h3 class="icon-label"><i class="ti ti-dog section-icon" aria-hidden="true"></i><span data-i18n="limitBarksTitle">It does not recognize barks</span></h3><p data-i18n="limitBarksCopy">It measures volume. A vacuum or construction noise can trigger alerts; threshold and duration reduce false positives.</p></article>
+          <article class="section-card"><h3 class="icon-label"><i class="ti ti-cpu section-icon" aria-hidden="true"></i><span data-i18n="limitPiTitle">Realistic Pi Zero</span></h3><p data-i18n="limitPiCopy">If it stutters away from home, drop to 800x600 or 10 FPS. The 2.4 GHz WiFi sets the limit.</p></article>
+        </div>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <span data-i18n="footerCopy">GuauCam — camera, Pi Zero W, Tailscale and Telegram.</span>
+      <a class="pill" href="#install"><i class="ti ti-download section-icon" aria-hidden="true"></i><span data-i18n="footerCta">Install now</span></a>
+    </footer>
+
+    <script>
+      const translations = {
+        en: {
+          title: "GuauCam — private camera for watching your dogs",
+          description: "GuauCam turns a Raspberry Pi Zero W and a camera (USB webcam or CSI module) into a private dashboard with live video, a noise meter and Telegram alerts when your dogs bark too much.",
+          navAria: "Main navigation",
+          homeAria: "GuauCam home",
+          languageAria: "Language",
+          navHow: "How it works",
+          navInstall: "Install",
+          navUsage: "Use",
+          navConfigure: "Configure",
+          eyebrow: "Private camera + bark detector",
+          heroTitle: "Check that they are okay.",
+          heroCopy: "GuauCam turns a Raspberry Pi Zero W and a camera (USB webcam or CSI module) into a private dashboard with live video, a noise meter and Telegram alerts when your dogs bark too much.",
+          ctaInstall: "Install on the Pi",
+          ctaArchitecture: "See the architecture",
+          previewAria: "GuauCam dashboard preview",
+          logoAlt: "GuauCam logo",
+          meterCopy: "The yellow mark is your threshold. If the bar stays above it for several seconds, you get an alert.",
+          cardVideoTitle: "Video without recompression",
+          cardVideoCopy: "The USB webcam outputs MJPEG and the Pi forwards it; with a CSI module, the hardware encoder compresses it. The CPU never transcodes, which matters on a Zero W.",
+          cardAudioTitle: "Audio stays at home",
+          cardAudioCopy: "The microphone is only measured for volume. It is not transmitted, not stored and has no history.",
+          cardAlertsTitle: "Useful alerts",
+          cardAlertsCopy: "If noise crosses the threshold for the configured time, Telegram receives a message and photo.",
+          cardPrivateTitle: "Private access",
+          cardPrivateCopy: "Use it through Tailscale or your LAN. Nothing is exposed to the internet and no router ports are opened.",
+          worksTitle: "How it works",
+          worksLead: "A deliberately simple flow: the camera does the heavy work, the Pi serves video and measures noise, and your phone only opens a private URL.",
+          flowAria: "GuauCam technical flow",
+          flowCameraTitle: "USB or CSI camera",
+          flowCameraCopy: "C920/C922 webcam (native MJPEG + microphone) or a ribbon module such as Pi Camera.",
+          flowStreamerTitle: "Streamer",
+          flowStreamerCopy: "ustreamer (USB) or picamera2 (CSI) publish the HTTP stream on port 8080.",
+          flowDetectorTitle: "Noise detector",
+          flowDetectorCopy: "Measures dBFS, applies threshold, sustained duration and cooldown.",
+          flowPanelTitle: "Web panel",
+          flowPanelCopy: "Video, live meter and settings applied immediately.",
+          flowTelegramTitle: "Telegram",
+          flowTelegramCopy: "Alert with photo when barking runs too long.",
+          installTitle: "Installation",
+          installLead: "The installer detects your camera (and asks if there are several), sets up systemd services, Tailscale, the streamer and the base configuration. Running it again updates the code without touching <code>/etc/guaucam.conf</code>.",
+          beforeStart: "Before you start",
+          reqPi: "Raspberry Pi OS Lite 32-bit Bookworm, SSH enabled and WiFi.",
+          reqCameraTitle: "USB or CSI camera",
+          reqCameraCopy: "UVC webcam with MJPEG (C920/C922) or OV5647/Pi Camera ribbon module. The installer detects what you have.",
+          reqTailscaleTitle: "Tailscale account",
+          reqTailscaleCopy: "App installed on the phone or PC where you will watch the panel.",
+          reqTelegramTitle: "Telegram bot",
+          reqTelegramCopy: "Only for alerts. Talk to @BotFather and save the token.",
+          installCommandsAria: "Installation commands",
+          terminalBot: "# 1. In Telegram: /newbot with @BotFather",
+          terminalMessage: "# 2. Send any message to your new bot",
+          terminalUpdate: "# Update later:",
+          stepBotTitle: "Create the bot",
+          stepBotCopy: "In Telegram, talk to <strong>@BotFather</strong>, send <code>/newbot</code> and save the token. Then write any message to the bot so the installer can detect your <code>chat_id</code>.",
+          stepInstallTitle: "Run the installer",
+          stepInstallCopy: "Over SSH, launch the installation command. It downloads dependencies, clones the repo into <code>/opt/guaucam</code> and prepares the services.",
+          stepTailscaleTitle: "Authorize Tailscale",
+          stepTailscaleCopy: "The installer will show a URL. Open it once to add the Pi to your tailnet.",
+          stepPanelTitle: "Save Telegram and open the panel",
+          stepPanelCopy: "Enter the bot token when asked. At the end you will see the access URLs and receive a test message.",
+          usageTitle: "Daily use",
+          usageLead: "With Tailscale active, open these URLs from your phone or PC. They also work with the Tailscale IP instead of the name.",
+          urlPanelTitle: "Panel",
+          urlPanelCopy: "Video, noise level and detector settings.",
+          urlStreamTitle: "Stream",
+          urlStreamCopy: "Live video only, without controls.",
+          urlSnapshotTitle: "Snapshot",
+          urlSnapshotCopy: "Instant capture for alerts or checks.",
+          configTitle: "Calibrate without restarting",
+          configLead: "The panel adjusts threshold, sustained duration, cooldown and Telegram immediately. The rest of the configuration lives in <code>/etc/guaucam.conf</code>.",
+          calibrationTitle: "First calibration",
+          calibrationOne: "Open the panel on <code>:8081</code>.",
+          calibrationTwo: "Watch where the bar sits with normal home noise.",
+          calibrationThree: "Make noise or wait for barking and see how high it rises.",
+          calibrationFour: "Drag the yellow threshold between both levels and save.",
+          terminalStatus: "# Service status",
+          terminalLogs: "# Live logs",
+          terminalRestart: "# Restart after advanced configuration edits",
+          limitsTitle: "Clear limits",
+          limitsLead: "Designed for live watching and volume alerts, not recording, classifying audio or replacing a commercial cloud camera.",
+          limitHistoryTitle: "No history",
+          limitHistoryCopy: "There is no recording. The system is live viewing and one-off alerts.",
+          limitAudioTitle: "No remote audio",
+          limitAudioCopy: "Audio is measured and discarded. It is never retransmitted or stored.",
+          limitBarksTitle: "It does not recognize barks",
+          limitBarksCopy: "It measures volume. A vacuum or construction noise can trigger alerts; threshold and duration reduce false positives.",
+          limitPiTitle: "Realistic Pi Zero",
+          limitPiCopy: "If it stutters away from home, drop to 800x600 or 10 FPS. The 2.4 GHz WiFi sets the limit.",
+          footerCopy: "GuauCam — camera, Pi Zero W, Tailscale and Telegram.",
+          footerCta: "Install now"
+        },
+        es: {
+          title: "GuauCam — cámara privada para vigilar a tus perros",
+          description: "GuauCam convierte una Raspberry Pi Zero W y una cámara (webcam USB o módulo CSI) en un panel privado con vídeo en directo, medidor de ruido y avisos por Telegram cuando tus perros ladran de más.",
+          navAria: "Navegación principal",
+          homeAria: "GuauCam inicio",
+          languageAria: "Idioma",
+          navHow: "Cómo funciona",
+          navInstall: "Instalar",
+          navUsage: "Uso",
+          navConfigure: "Configurar",
+          eyebrow: "Cámara privada + detector de ladridos",
+          heroTitle: "Mira si están bien.",
+          heroCopy: "GuauCam convierte una Raspberry Pi Zero W y una cámara (webcam USB o módulo CSI) en un panel privado con vídeo en directo, medidor de ruido y avisos por Telegram cuando tus perros ladran de más.",
+          ctaInstall: "Instalar en la Pi",
+          ctaArchitecture: "Ver arquitectura",
+          previewAria: "Vista previa del panel GuauCam",
+          logoAlt: "Logo de GuauCam",
+          meterCopy: "La marca amarilla es tu umbral. Si la barra lo supera durante varios segundos, recibes un aviso.",
+          cardVideoTitle: "Vídeo sin recomprimir",
+          cardVideoCopy: "La webcam USB entrega MJPEG y la Pi lo reenvía; con módulo CSI comprime el encoder hardware. La CPU nunca transcodifica: clave para una Zero W.",
+          cardAudioTitle: "Audio que no sale de casa",
+          cardAudioCopy: "El micrófono solo se mide para calcular volumen. No se transmite, no se guarda y no hay histórico.",
+          cardAlertsTitle: "Alertas útiles",
+          cardAlertsCopy: "Si el ruido supera el umbral durante el tiempo configurado, Telegram recibe mensaje y foto.",
+          cardPrivateTitle: "Acceso privado",
+          cardPrivateCopy: "Funciona por Tailscale o LAN. Nada expuesto a internet, nada de abrir puertos en el router.",
+          worksTitle: "Cómo funciona",
+          worksLead: "Un flujo deliberadamente simple: la cámara hace el trabajo pesado, la Pi sirve vídeo y mide ruido, tu móvil solo abre una URL privada.",
+          flowAria: "Flujo técnico de GuauCam",
+          flowCameraTitle: "Cámara USB o CSI",
+          flowCameraCopy: "Webcam C920/C922 (MJPEG nativo + micro) o módulo de cinta tipo Pi Camera.",
+          flowStreamerTitle: "Streamer",
+          flowStreamerCopy: "ustreamer (USB) o picamera2 (CSI) publican el stream HTTP en el puerto 8080.",
+          flowDetectorTitle: "Detector de ruido",
+          flowDetectorCopy: "Mide dBFS, aplica umbral, duración sostenida y cooldown.",
+          flowPanelTitle: "Panel web",
+          flowPanelCopy: "Vídeo, medidor en vivo y ajustes aplicados al momento.",
+          flowTelegramTitle: "Telegram",
+          flowTelegramCopy: "Aviso con foto cuando ladran de más.",
+          installTitle: "Instalación",
+          installLead: "El instalador detecta tu cámara (y pregunta si hay varias), deja servicios systemd, Tailscale, el streamer y la configuración base. Reejecutarlo actualiza el código sin tocar <code>/etc/guaucam.conf</code>.",
+          beforeStart: "Antes de empezar",
+          reqPi: "Raspberry Pi OS Lite 32-bit Bookworm, SSH activo y WiFi.",
+          reqCameraTitle: "Cámara USB o CSI",
+          reqCameraCopy: "Webcam UVC con MJPEG (C920/C922) o módulo de cinta OV5647/Pi Camera. El instalador detecta cuál tienes.",
+          reqTailscaleTitle: "Cuenta Tailscale",
+          reqTailscaleCopy: "App instalada en el móvil o PC desde el que mirarás el panel.",
+          reqTelegramTitle: "Bot de Telegram",
+          reqTelegramCopy: "Solo para avisos. Habla con @BotFather y guarda el token.",
+          installCommandsAria: "Comandos de instalación",
+          terminalBot: "# 1. En Telegram: /newbot con @BotFather",
+          terminalMessage: "# 2. Escribe cualquier mensaje a tu bot nuevo",
+          terminalUpdate: "# Actualizar más adelante:",
+          stepBotTitle: "Crea el bot",
+          stepBotCopy: "En Telegram, habla con <strong>@BotFather</strong>, envía <code>/newbot</code> y guarda el token. Escribe después cualquier mensaje al bot para que el instalador pueda detectar tu <code>chat_id</code>.",
+          stepInstallTitle: "Ejecuta el instalador",
+          stepInstallCopy: "Por SSH, lanza el comando de instalación. Descarga dependencias, clona el repo en <code>/opt/guaucam</code> y prepara los servicios.",
+          stepTailscaleTitle: "Autoriza Tailscale",
+          stepTailscaleCopy: "El instalador mostrará una URL. Ábrela una vez para meter la Pi en tu tailnet.",
+          stepPanelTitle: "Guarda Telegram y abre el panel",
+          stepPanelCopy: "Introduce el token del bot cuando lo pida. Al terminar verás las URLs de acceso y recibirás un mensaje de prueba.",
+          usageTitle: "Uso diario",
+          usageLead: "Con Tailscale activo, abre estas URLs desde el móvil o el PC. También funcionan con la IP de Tailscale en lugar del nombre.",
+          urlPanelTitle: "Panel",
+          urlPanelCopy: "Vídeo, nivel de ruido y ajustes del detector.",
+          urlStreamTitle: "Stream",
+          urlStreamCopy: "Solo vídeo en directo, sin controles.",
+          urlSnapshotTitle: "Foto fija",
+          urlSnapshotCopy: "Captura instantánea para avisos o comprobaciones.",
+          configTitle: "Calibrar sin reiniciar",
+          configLead: "El panel ajusta umbral, duración sostenida, cooldown y Telegram al momento. El resto de configuración vive en <code>/etc/guaucam.conf</code>.",
+          calibrationTitle: "Primera calibración",
+          calibrationOne: "Abre el panel en <code>:8081</code>.",
+          calibrationTwo: "Mira dónde queda la barra con el ruido normal de casa.",
+          calibrationThree: "Haz ruido o espera ladridos y observa hasta dónde sube.",
+          calibrationFour: "Arrastra el umbral amarillo entre ambos niveles y guarda.",
+          terminalStatus: "# Estado de servicios",
+          terminalLogs: "# Logs en vivo",
+          terminalRestart: "# Reiniciar tras editar configuración avanzada",
+          limitsTitle: "Límites claros",
+          limitsLead: "Diseñado para vigilar en directo y avisar por volumen, no para grabar, clasificar audio ni sustituir una cámara comercial con nube.",
+          limitHistoryTitle: "Sin histórico",
+          limitHistoryCopy: "No hay grabación. El sistema es visionado en directo y avisos puntuales.",
+          limitAudioTitle: "Sin audio remoto",
+          limitAudioCopy: "El audio se mide y se descarta. Nunca se retransmite ni se guarda.",
+          limitBarksTitle: "No reconoce ladridos",
+          limitBarksCopy: "Mide volumen. Una aspiradora u obras pueden disparar avisos; umbral y duración reducen falsos positivos.",
+          limitPiTitle: "Pi Zero realista",
+          limitPiCopy: "Si fuera de casa va a tirones, baja a 800x600 o 10 FPS. El WiFi 2.4 GHz manda.",
+          footerCopy: "GuauCam — cámara, Pi Zero W, Tailscale y Telegram.",
+          footerCta: "Instalar ahora"
+        }
+      };
+
+      const applyLanguage = (lang) => {
+        const selectedLang = translations[lang] ? lang : "en";
+        const strings = translations[selectedLang];
+        document.documentElement.lang = selectedLang;
+        document.title = strings.title;
+        document.querySelector('meta[name="description"]').setAttribute("content", strings.description);
+
+        document.querySelectorAll("[data-i18n]").forEach((element) => {
+          element.textContent = strings[element.dataset.i18n];
+        });
+
+        document.querySelectorAll("[data-i18n-html]").forEach((element) => {
+          element.innerHTML = strings[element.dataset.i18nHtml];
+        });
+
+        document.querySelectorAll("[data-i18n-aria]").forEach((element) => {
+          element.setAttribute("aria-label", strings[element.dataset.i18nAria]);
+        });
+
+        document.querySelectorAll("[data-i18n-alt]").forEach((element) => {
+          element.setAttribute("alt", strings[element.dataset.i18nAlt]);
+        });
+
+        document.querySelectorAll("[data-lang]").forEach((button) => {
+          const isActive = button.dataset.lang === selectedLang;
+          button.classList.toggle("is-active", isActive);
+          button.setAttribute("aria-pressed", String(isActive));
+        });
+
+        localStorage.setItem("guaucam-lang", selectedLang);
+      };
+
+      document.querySelectorAll("[data-lang]").forEach((button) => {
+        button.addEventListener("click", () => applyLanguage(button.dataset.lang));
+      });
+
+      applyLanguage(localStorage.getItem("guaucam-lang") || "en");
+    </script>
+  </div>
+</body>
+</html>

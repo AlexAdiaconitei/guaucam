@@ -1,0 +1,735 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" type="image/png" href="logo.png">
+<title>🐶 GuauCam</title>
+<style>
+  :root{
+    --noche:#06162e;
+    --noche-2:#0b2345;
+    --tinta:#10233f;
+    --crema:#fff8e8;
+    --pelaje:#f6b957;
+    --verde:#4f9349;
+    --verde-brillo:#74c365;
+    --peligro:#e1543f;
+    --linea:rgba(255,248,232,.18);
+    --sombra:0 24px 70px rgba(0,0,0,.38);
+  }
+
+  *{box-sizing:border-box}
+
+  html{min-height:100%;background:var(--noche)}
+
+  body{
+    min-height:100%;
+    margin:0;
+    color:var(--crema);
+    font-family:"Trebuchet MS","Segoe UI",system-ui,sans-serif;
+    background:
+      radial-gradient(circle at 10% 8%, rgba(246,185,87,.34), transparent 28rem),
+      radial-gradient(circle at 88% 0%, rgba(79,147,73,.38), transparent 22rem),
+      linear-gradient(145deg, var(--noche), var(--noche-2) 54%, #06101f);
+  }
+
+  body::before{
+    content:"";
+    position:fixed;
+    inset:0;
+    pointer-events:none;
+    opacity:.18;
+    background-image:
+      linear-gradient(90deg, rgba(255,255,255,.06) 1px, transparent 1px),
+      linear-gradient(rgba(255,255,255,.05) 1px, transparent 1px);
+    background-size:42px 42px;
+    mask-image:linear-gradient(to bottom, #000, transparent 78%);
+  }
+
+  .panel{
+    width:min(1120px, 100%);
+    margin:0 auto;
+    padding:clamp(18px, 4vw, 46px);
+    position:relative;
+  }
+
+  .brand{
+    display:grid;
+    grid-template-columns:auto 1fr;
+    align-items:center;
+    gap:clamp(14px, 3vw, 26px);
+    margin-bottom:clamp(20px, 5vw, 42px);
+  }
+
+  .brand-logo{
+    width:clamp(86px, 16vw, 168px);
+    aspect-ratio:1;
+    object-fit:cover;
+    object-position:top center;
+    border-radius:34% 66% 35% 65% / 58% 36% 64% 42%;
+    border:3px solid rgba(255,248,232,.88);
+    background:#fff;
+    box-shadow:
+      0 0 0 8px rgba(246,185,87,.16),
+      0 18px 46px rgba(0,0,0,.35);
+  }
+
+  .eyebrow{
+    margin:0 0 8px;
+    color:#9ed490;
+    font-size:.78rem;
+    font-weight:800;
+    letter-spacing:.18em;
+    text-transform:uppercase;
+  }
+
+  h1{
+    margin:0;
+    color:#fffaf0;
+    font-size:clamp(2.25rem, 7vw, 5.8rem);
+    line-height:.88;
+    letter-spacing:-.075em;
+    text-wrap:balance;
+  }
+
+  .lead{
+    max-width:48rem;
+    margin:clamp(12px, 2vw, 18px) 0 0;
+    color:rgba(255,248,232,.78);
+    font-size:clamp(1rem, 2vw, 1.2rem);
+    line-height:1.5;
+  }
+
+  .grid{
+    display:grid;
+    grid-template-columns:1fr;
+    gap:clamp(18px, 3vw, 28px);
+    align-items:start;
+  }
+
+  .card{
+    position:relative;
+    overflow:hidden;
+    border:1px solid var(--linea);
+    border-radius:30px;
+    background:linear-gradient(180deg, rgba(255,248,232,.13), rgba(255,248,232,.06));
+    box-shadow:var(--sombra);
+    backdrop-filter:blur(18px);
+  }
+
+  .card::after{
+    content:"";
+    position:absolute;
+    inset:auto 22px 0;
+    height:4px;
+    border-radius:999px 999px 0 0;
+    background:linear-gradient(90deg, var(--pelaje), var(--verde-brillo));
+    opacity:.92;
+  }
+
+  .video-card{padding:clamp(12px, 2vw, 18px)}
+
+  .video-actions{
+    display:flex;
+    align-items:center;
+    gap:14px;
+    flex-wrap:wrap;
+    margin-top:12px;
+  }
+
+  .video-frame{
+    position:relative;
+    overflow:hidden;
+    border-radius:22px;
+    background:
+      linear-gradient(135deg, rgba(6,22,46,.9), rgba(16,35,63,.75)),
+      #000;
+    border:1px solid rgba(255,248,232,.12);
+  }
+
+  .video-frame::before{
+    content:"LIVE";
+    position:absolute;
+    z-index:1;
+    top:14px;
+    left:14px;
+    padding:7px 11px 7px 26px;
+    border-radius:999px;
+    color:#fff;
+    background:rgba(6,22,46,.72);
+    border:1px solid rgba(255,248,232,.2);
+    font-size:.72rem;
+    font-weight:900;
+    letter-spacing:.12em;
+  }
+
+  .video-frame::after{
+    content:"";
+    position:absolute;
+    z-index:2;
+    top:24px;
+    left:25px;
+    width:8px;
+    height:8px;
+    border-radius:999px;
+    background:var(--verde-brillo);
+    box-shadow:0 0 0 6px rgba(116,195,101,.18);
+  }
+
+  #video{
+    display:block;
+    width:100%;
+    min-height:280px;
+    aspect-ratio:16/10;
+    object-fit:cover;
+    background:#000;
+  }
+
+  .status-card{
+    padding:clamp(18px, 3vw, 28px);
+  }
+
+  h2{
+    margin:0 0 18px;
+    font-size:clamp(1.15rem, 3vw, 1.65rem);
+    line-height:1.1;
+    letter-spacing:-.035em;
+  }
+
+  .db-readout{
+    display:flex;
+    align-items:flex-end;
+    justify-content:space-between;
+    gap:14px;
+    margin-bottom:18px;
+  }
+
+  .db-number{
+    color:#fff;
+    font-size:clamp(3rem, 9vw, 5.4rem);
+    font-weight:900;
+    line-height:.82;
+    letter-spacing:-.08em;
+    text-shadow:0 10px 30px rgba(0,0,0,.25);
+  }
+
+  .db-unit{
+    color:rgba(255,248,232,.58);
+    font-size:1rem;
+    font-weight:800;
+    letter-spacing:.14em;
+    text-transform:uppercase;
+  }
+
+  .threshold-control{
+    margin:12px 0 10px;
+  }
+
+  .meter{
+    height:34px;
+    margin:0;
+    overflow:hidden;
+    position:relative;
+    isolation:isolate;
+    border:1px solid rgba(255,248,232,.16);
+    border-radius:999px;
+    background:linear-gradient(90deg, rgba(255,248,232,.12), rgba(255,248,232,.05));
+    box-shadow:inset 0 2px 10px rgba(0,0,0,.28);
+  }
+
+  #bar{
+    position:relative;
+    z-index:1;
+    height:100%;
+    width:0%;
+    border-radius:999px;
+    background:
+      linear-gradient(90deg, rgba(255,255,255,.32), transparent 38%),
+      linear-gradient(90deg, var(--verde), var(--verde-brillo));
+    box-shadow:0 0 22px rgba(116,195,101,.38);
+    transition:width .2s ease, background-color .2s ease;
+  }
+
+  .high #bar{
+    background:
+      linear-gradient(90deg, rgba(255,255,255,.32), transparent 38%),
+      linear-gradient(90deg, #ffae55, var(--peligro));
+    box-shadow:0 0 26px rgba(225,84,63,.52);
+  }
+
+  #mark{
+    position:absolute;
+    z-index:2;
+    top:0;
+    bottom:0;
+    width:4px;
+    border-radius:999px;
+    background:var(--pelaje);
+    box-shadow:0 0 0 4px rgba(246,185,87,.2), 0 0 18px rgba(246,185,87,.5);
+    pointer-events:none;
+  }
+
+  #mark::after{
+    content:"";
+    position:absolute;
+    top:50%;
+    left:50%;
+    width:20px;
+    height:20px;
+    transform:translate(-50%, -50%);
+    border:2px solid #06162e;
+    border-radius:50%;
+    background:var(--pelaje);
+    box-shadow:0 4px 14px rgba(0,0,0,.35);
+  }
+
+  .threshold-slider{
+    position:absolute;
+    z-index:3;
+    inset:0;
+    width:100%;
+    height:100%;
+    margin:0;
+    padding:0;
+    border:0;
+    appearance:none;
+    background:transparent;
+    cursor:ew-resize;
+    outline:none;
+  }
+
+  .threshold-slider::-webkit-slider-runnable-track{
+    height:100%;
+    background:transparent;
+  }
+
+  .threshold-slider::-webkit-slider-thumb{
+    width:34px;
+    height:34px;
+    appearance:none;
+    border:0;
+    border-radius:50%;
+    background:transparent;
+  }
+
+  .threshold-slider::-moz-range-track{
+    height:100%;
+    background:transparent;
+  }
+
+  .threshold-slider::-moz-range-thumb{
+    width:34px;
+    height:34px;
+    border:0;
+    border-radius:50%;
+    background:transparent;
+  }
+
+  .meter:focus-within #mark{
+    box-shadow:0 0 0 5px rgba(246,185,87,.28), 0 0 24px rgba(246,185,87,.72);
+  }
+
+  .threshold-meta{
+    display:flex;
+    align-items:start;
+    justify-content:space-between;
+    gap:12px;
+    margin-top:10px;
+  }
+
+  #thresholdValue{
+    flex:0 0 auto;
+    padding:5px 9px;
+    border:1px solid rgba(246,185,87,.3);
+    border-radius:999px;
+    color:#06162e;
+    background:var(--pelaje);
+    font-size:.78rem;
+    font-weight:900;
+    line-height:1;
+  }
+
+  small{
+    display:block;
+    color:rgba(255,248,232,.64);
+    line-height:1.45;
+  }
+
+  [hidden]{display:none!important}
+
+  .notice{
+    margin:0 0 16px;
+    padding:12px 14px;
+    border:1px solid rgba(246,185,87,.42);
+    border-radius:14px;
+    background:rgba(246,185,87,.12);
+    color:var(--crema);
+    font-size:.92rem;
+    line-height:1.45;
+  }
+
+  form{
+    display:grid;
+    gap:14px;
+  }
+
+  details{
+    margin-top:18px;
+    padding-top:18px;
+    border-top:1px solid var(--linea);
+  }
+
+  summary{
+    cursor:pointer;
+    color:#fffaf0;
+    font-size:1.08rem;
+    font-weight:800;
+    letter-spacing:-.02em;
+    user-select:none;
+  }
+
+  summary:hover{color:var(--pelaje)}
+
+  details[open] summary{margin-bottom:14px}
+
+  label{
+    display:grid;
+    gap:7px;
+    color:rgba(255,248,232,.82);
+    font-size:.94rem;
+    line-height:1.35;
+  }
+
+  input:not([type="range"]){
+    width:100%;
+    padding:12px 14px;
+    border:1px solid rgba(255,248,232,.18);
+    border-radius:16px;
+    background:rgba(6,22,46,.72);
+    color:#fffaf0;
+    font:700 1rem/1 "Segoe UI",system-ui,sans-serif;
+    outline:none;
+    transition:border-color .15s ease, box-shadow .15s ease, background .15s ease;
+  }
+
+  input:not([type="range"]):focus-visible{
+    border-color:var(--pelaje);
+    box-shadow:0 0 0 4px rgba(246,185,87,.18);
+    background:rgba(6,22,46,.95);
+  }
+
+  .actions{
+    display:flex;
+    align-items:center;
+    gap:14px;
+    flex-wrap:wrap;
+  }
+
+  button{
+    margin:0;
+    padding:13px 20px;
+    border:0;
+    border-radius:999px;
+    color:#06162e;
+    background:linear-gradient(135deg, var(--pelaje), #ffe08a);
+    box-shadow:0 12px 28px rgba(246,185,87,.26);
+    font:900 1rem/1 "Segoe UI",system-ui,sans-serif;
+    cursor:pointer;
+    transition:transform .15s ease, box-shadow .15s ease;
+  }
+
+  button:hover{transform:translateY(-1px);box-shadow:0 16px 34px rgba(246,185,87,.32)}
+  button:active{transform:translateY(0)}
+  button:focus-visible{outline:3px solid rgba(255,248,232,.88);outline-offset:4px}
+
+  #msg{
+    min-height:1.2em;
+    color:#9ed490;
+    font-weight:800;
+  }
+
+  button.secondary{
+    color:var(--crema);
+    background:rgba(255,248,232,.12);
+    border:1px solid var(--linea);
+    box-shadow:none;
+  }
+
+  button.secondary:hover{box-shadow:0 10px 22px rgba(0,0,0,.25)}
+
+  .tg-status{
+    vertical-align:middle;
+    margin-left:8px;
+    padding:5px 10px;
+    border-radius:999px;
+    font-size:.68rem;
+    font-weight:900;
+    letter-spacing:.08em;
+    text-transform:uppercase;
+    color:#06162e;
+    background:var(--pelaje);
+  }
+
+  .tg-status.ok{background:var(--verde-brillo)}
+
+  #tgMsg{
+    min-height:1.2em;
+    color:#9ed490;
+    font-weight:800;
+  }
+
+  #tgMsg.error{color:#ffae55}
+
+  @media (max-width:780px){
+    .brand{grid-template-columns:1fr;text-align:center;justify-items:center}
+    .lead{margin-left:auto;margin-right:auto}
+    #video{min-height:210px}
+  }
+
+  @media (prefers-reduced-motion:reduce){
+    *,*::before,*::after{transition:none!important}
+  }
+</style>
+<body>
+<main class="panel">
+  <header class="brand">
+    <img class="brand-logo" src="data:image/webp;base64,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" alt="GuauCam">
+    <div>
+      <h1>GuauCam</h1>
+    </div>
+  </header>
+
+  <section class="grid" aria-label="Control panel">
+    <article class="card video-card">
+      <div class="video-frame">
+        <img id="video" alt="loading video...">
+      </div>
+      <div class="video-actions">
+        <button type="button" class="secondary" id="btnShot">📸 Screenshot</button>
+        <span id="shotMsg"></span>
+      </div>
+    </article>
+
+    <aside class="card status-card">
+      <h2>Noise level</h2>
+      <div class="db-readout">
+        <span class="db-number" id="db">...</span>
+        <span class="db-unit">dB</span>
+      </div>
+      <div class="notice" id="noMic" hidden>🎤 <strong>No microphone detected</strong> —
+        noise metering and alerts are off, so their settings are hidden. Plug in a
+        USB mic (or the webcam) and everything comes back by itself within a minute.
+        Video keeps working.</div>
+      <div class="threshold-control" id="thresholdControl">
+        <div class="meter" id="meter">
+          <div id="bar"></div>
+          <div id="mark"></div>
+          <input class="threshold-slider" id="threshold" form="noiseForm" type="range" step="0.5" min="-60" max="0" name="THRESHOLD_DB" aria-label="Alert threshold in dB">
+        </div>
+        <div class="threshold-meta">
+          <small>Drag the yellow marker along the bar to set the threshold. A red bar means it's being exceeded.</small>
+          <output id="thresholdValue" for="threshold">...</output>
+        </div>
+      </div>
+
+      <details id="noiseSettings">
+        <summary>Alert settings</summary>
+        <form id="noiseForm">
+          <label>Seconds above the threshold before alerting
+            <input type="number" step="0.5" min="0.5" name="SUSTAINED_SECONDS"></label>
+          <label>Cooldown between alerts (seconds)
+            <input type="number" step="10" min="0" name="COOLDOWN_SECONDS"></label>
+          <div class="actions"><button>Save</button><span id="msg"></span></div>
+        </form>
+      </details>
+
+      <details id="tgSettings">
+        <summary>Telegram alerts <span class="tg-status" id="tgStatus">...</span></summary>
+        <form id="tgForm">
+          <small>Create the bot with @BotFather (/newbot), send it any message
+            and press "Detect chat_id". Applies instantly, no restart.</small>
+          <label>Bot token
+            <input type="password" name="TELEGRAM_TOKEN" autocomplete="off"
+                   placeholder="123456789:ABC..."></label>
+          <label>chat_id
+            <input type="text" name="TELEGRAM_CHAT_ID" inputmode="numeric"
+                   placeholder="press Detect after messaging your bot"></label>
+          <div class="actions">
+            <button>Save</button>
+            <button type="button" class="secondary" id="btnDetect">Detect chat_id</button>
+            <button type="button" class="secondary" id="btnTest">Send test</button>
+          </div>
+          <span id="tgMsg"></span>
+        </form>
+      </details>
+    </aside>
+  </section>
+</main>
+<script>
+const $ = id => document.getElementById(id);
+const pct = db => Math.max(0, Math.min(100, (db + 60) / 60 * 100));
+const threshold = $('threshold');
+let thresholdEdited = false;
+let currentDb = null;
+
+const paintThreshold = value => {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return;
+  threshold.value = n;
+  $('mark').style.left = pct(n) + '%';
+  $('thresholdValue').textContent = n.toFixed(1) + ' dB';
+};
+const paintAlert = thresholdValue => {
+  if (currentDb === null) { $('meter').classList.remove('high'); return; }
+  $('meter').classList.toggle('high', currentDb >= thresholdValue);
+};
+
+threshold.addEventListener('input', () => {
+  thresholdEdited = true;
+  paintThreshold(threshold.value);
+  paintAlert(Number(threshold.value));
+});
+
+const refreshTg = c => {
+  const active = c.TELEGRAM_TOKEN_SET && c.TELEGRAM_CHAT_ID;
+  $('tgStatus').textContent = active ? 'active' : 'not set';
+  $('tgStatus').classList.toggle('ok', !!active);
+  if (c.TELEGRAM_TOKEN_SET) {
+    document.querySelector('[name=TELEGRAM_TOKEN]').placeholder =
+      'saved ✔ (type here to replace it)';
+  }
+};
+
+let videoURL = '';
+
+fetch('/api/config').then(r => r.json()).then(c => {
+  videoURL = 'http://' + location.hostname + ':' + c.PORT + '/stream';
+  if (!document.hidden) $('video').src = videoURL;
+  for (const el of document.querySelectorAll('input')) {
+    if (c[el.name] !== undefined) el.value = c[el.name];
+  }
+  paintThreshold(c.THRESHOLD_DB);
+  refreshTg(c);
+});
+
+// No mic = no noise level to configure: hide the meter and the alert settings
+// and say so clearly; everything returns by itself when a mic shows up
+const setMicAvailable = ok => {
+  $('noMic').hidden = ok;
+  $('thresholdControl').hidden = !ok;
+  $('noiseSettings').hidden = !ok;
+};
+
+const paintLevel = n => {
+  const visibleThreshold = Number(threshold.value);
+  const activeThreshold = thresholdEdited && Number.isFinite(visibleThreshold) ? visibleThreshold : n.threshold;
+  currentDb = n.db;
+  setMicAvailable(n.db !== null);
+  if (n.db === null) {
+    $('db').textContent = '—';
+    $('bar').style.width = '0%';
+  } else {
+    $('db').textContent = n.db.toFixed(1);
+    $('bar').style.width = pct(n.db) + '%';
+  }
+  if (!thresholdEdited) paintThreshold(n.threshold);
+  paintAlert(activeThreshold);
+};
+
+// Live level over SSE: one persistent connection, EventSource reconnects itself
+let levelES = null;
+const connectLevel = () => {
+  if (levelES) levelES.close();
+  levelES = new EventSource('/api/level/stream');
+  levelES.onmessage = ev => { try { paintLevel(JSON.parse(ev.data)); } catch (e) {} };
+};
+connectLevel();
+
+// Hidden tab: stop the video download (~5-15 Mbps) and the level stream;
+// resume when it becomes visible again
+const BLANK = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) {
+    if (levelES) levelES.close();
+    if (videoURL) $('video').src = BLANK;
+  } else {
+    connectLevel();
+    if (videoURL) $('video').src = videoURL;
+  }
+});
+
+$('btnShot').onclick = async () => {
+  $('shotMsg').textContent = 'Capturing...';
+  try {
+    const r = await fetch('/snapshot');
+    if (!r.ok) throw new Error();
+    const blob = await r.blob();
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'guaucam-' + new Date().toISOString().replace(/[:T]/g, '-').slice(0, 19) + '.jpg';
+    a.click();
+    URL.revokeObjectURL(a.href);
+    $('shotMsg').textContent = '✔ Downloaded';
+  } catch (e) {
+    $('shotMsg').textContent = '✖ Snapshot failed (stream down?)';
+  }
+  setTimeout(() => $('shotMsg').textContent = '', 4000);
+};
+
+$('noiseForm').onsubmit = async e => {
+  e.preventDefault();
+  const data = Object.fromEntries(new FormData(e.target));
+  const r = await fetch('/api/config', {method: 'POST',
+    headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data)});
+  if (r.ok) {
+    thresholdEdited = false;
+    paintThreshold(data.THRESHOLD_DB);
+  }
+  $('msg').textContent = r.ok ? ' ✔ Saved and applied' : ' ✖ Error';
+  setTimeout(() => $('msg').textContent = '', 3000);
+};
+
+const tgNotice = (text, isError) => {
+  $('tgMsg').textContent = text;
+  $('tgMsg').classList.toggle('error', !!isError);
+  setTimeout(() => $('tgMsg').textContent = '', 6000);
+};
+const reloadTg = async () => refreshTg(await (await fetch('/api/config')).json());
+
+$('tgForm').onsubmit = async e => {
+  e.preventDefault();
+  const data = {};
+  for (const [k, v] of new FormData(e.target)) if (v.trim()) data[k] = v.trim();
+  if (!Object.keys(data).length) return tgNotice('Nothing to save', true);
+  const r = await fetch('/api/config', {method: 'POST',
+    headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data)});
+  const j = await r.json().catch(() => ({}));
+  tgNotice(r.ok ? '✔ Saved and applied' : '✖ ' + (j.error || 'Error'), !r.ok);
+  if (r.ok) {
+    e.target.elements.TELEGRAM_TOKEN.value = '';
+    reloadTg();
+  }
+};
+
+$('btnDetect').onclick = async () => {
+  tgNotice('Looking for your message to the bot...');
+  const r = await fetch('/api/telegram/detect', {method: 'POST'});
+  const j = await r.json().catch(() => ({}));
+  if (r.ok) {
+    document.querySelector('[name=TELEGRAM_CHAT_ID]').value = j.chat_id;
+    tgNotice('✔ chat_id detected and saved: ' + j.chat_id);
+    reloadTg();
+  } else {
+    tgNotice('✖ ' + (j.error || 'Error'), true);
+  }
+};
+
+$('btnTest').onclick = async () => {
+  tgNotice('Sending test...');
+  const r = await fetch('/api/telegram/test', {method: 'POST'});
+  const j = await r.json().catch(() => ({}));
+  tgNotice(r.ok ? '✔ Sent: check your Telegram' : '✖ ' + (j.error || 'Error'), !r.ok);
+};
+</script>
+</body>
+</html>

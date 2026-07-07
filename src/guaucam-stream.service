@@ -1,0 +1,12 @@
+[Unit]
+Description=GuauCam MJPEG camera stream
+After=network.target
+StartLimitIntervalSec=0
+
+[Service]
+ExecStart=/opt/guaucam/src/stream.sh
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
