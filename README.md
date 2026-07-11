@@ -5,7 +5,7 @@
 
 </div>
 
-Watch your dogs from anywhere: real-time streaming from a camera (USB webcam or CSI ribbon module) connected to a Raspberry Pi Zero W, privately reachable through [Tailscale](https://tailscale.com), with Telegram alerts when they bark too much.
+Watch your dogs from anywhere: real-time streaming from a camera (USB webcam or CSI ribbon module) connected to a Raspberry Pi Zero W, privately reachable through [Tailscale](https://tailscale.com), with Telegram alerts when they bark too much. Several people (you plus family) can be registered, and the bot answers on-demand commands like `/screenshot` and `/video`.
 
 Everything installs with a single script (`install.sh`) and works without opening any ports to the outside: the video is only visible from your Tailscale network or your home WiFi.
 
@@ -15,13 +15,15 @@ Everything installs with a single script (`install.sh`) and works without openin
 [USB or CSI camera] --MJPEG--> [Pi Zero W: streamer] --HTTP--> [Your phone/PC via Tailscale]
       |
       └--audio (USB mic)--> [Noise detector] --above threshold--> [Telegram alert + photo]
-                                  |
-                                  └--> [Web panel: video + live meter + settings]
+                                  |                                 (to every registered chat)
+                                  ├--> [Web panel: video + live meter + settings]
+                                  └--> [Telegram bot: /screenshot /video /live commands]
 ```
 
 - **Video**: the CPU never compresses — essential on the Zero W's single ARMv6 core. With a USB webcam, the camera itself delivers MJPEG and the Pi just relays the frames ([ustreamer](https://github.com/pikvm/ustreamer)); with a CSI module, the VideoCore's *hardware* JPEG encoder compresses (picamera2). Either way: latency under 1 second, viewable in any browser. The installer detects which camera you have connected and asks which one to use if there are several.
-- **Noise detector**: continuously measures the microphone volume (~3% CPU) — the USB webcam's, or a separate USB mic if you use a CSI module (which has none). If it stays above the configured threshold for several seconds in a row, it sends you a Telegram message with a photo of the moment. Without a microphone, video and panel keep working; there's just no meter and no alerts.
-- **Web panel** (port 8081): the video (with a one-tap **Screenshot** download), the live noise level, and collapsible sections for the alert settings (threshold, duration, cooldown) and the Telegram setup (token, `chat_id` detection, test message) — all on a single page, changes apply instantly with no restart. Without a microphone the noise controls hide behind a clear notice until one is plugged in. The live level arrives over a single SSE connection (no polling), and when the tab is hidden the panel pauses both the video download (~5-15 Mbps) and the level stream, resuming on return.
+- **Noise detector**: continuously measures the microphone volume (~3% CPU) — the USB webcam's, or a separate USB mic if you use a CSI module (which has none). If it stays above the configured threshold for several seconds in a row, it sends a Telegram message with a photo of the moment to every registered chat. Without a microphone, video and panel keep working; there's just no meter and no alerts.
+- **Telegram bot**: the same bot also answers on-demand commands from any registered chat — `/screenshot` (a still now), `/video` (a few-seconds GIF clip), `/live` (link to the panel) and `/help`. A chat that is not registered is refused (the bot replies with its own `chat_id` so you can add it from the panel). No history is kept.
+- **Web panel** (port 8081): the video (with a one-tap **Screenshot** download), the live noise level, and collapsible sections for the alert settings (threshold, duration, cooldown) and the Telegram setup (token, the list of registered chats with add/detect/remove, test message) — all on a single page, changes apply instantly with no restart. Without a microphone the noise controls hide behind a clear notice until one is plugged in. The live level arrives over a single SSE connection (no polling), and when the tab is hidden the panel pauses both the video download (~5-15 Mbps) and the level stream, resuming on return.
 - **Access**: only through your tailnet (or the home LAN). Nothing exposed to the internet.
 
 > [!NOTE]
@@ -35,7 +37,7 @@ Everything installs with a single script (`install.sh`) and works without openin
 | Camera | **USB**: Logitech C920/C922 or any UVC webcam with native MJPEG. **CSI**: ribbon module Pi Camera / OV5647 type (note: the Pi Zero connector has 22 pins — modules shipping the standard 15-pin cable need the Zero adapter cable) |
 | Microphone (for alerts) | The USB webcam's works. CSI modules have none: without a USB mic there are no noise alerts (video works anyway) |
 | Tailscale account | With the app installed on the phone/PC you'll watch from |
-| Telegram bot | Only for the noise alerts (free, 2 minutes — see below) |
+| Telegram bot | For the noise alerts and the on-demand commands (free, 2 minutes — see below) |
 
 ## Installation
 
@@ -77,6 +79,8 @@ sudo bash /opt/guaucam/install.sh
 
 > [!TIP]
 > You can leave the token empty during installation (or if the `chat_id` autodetection fails): video works anyway. Later, on the web panel, **Telegram alerts** section: save the token, send any message to your bot and press **Detect chat_id**. It activates instantly, no restart.
+>
+> To register **more people** (family), have each of them message the bot once, then press **Detect chat_id** on the panel to add them, or paste their `chat_id` and press **Add**. Everyone on the list gets the alerts and can use the bot commands. Remove anyone with the ✕ on their chip.
 
 ## Usage
 
@@ -91,6 +95,19 @@ Open in any browser (phone or PC, at home or away with Tailscale on):
 | `http://<pi-hostname>:8080/snapshot` | Still photo of the current instant |
 
 (They also work with the Tailscale IP instead of the name.)
+
+### Telegram bot commands
+
+From any registered chat, send the bot:
+
+| Command | What it does |
+|---|---|
+| `/screenshot` (or `/photo`) | A still photo of the current instant |
+| `/video` | A short clip of the last few seconds, as a GIF |
+| `/live` | The panel link to open the real-time feed (Telegram can't embed the live stream, so it can only link you to it) |
+| `/help` | The list of commands |
+
+Only registered chats are served; anyone else gets their own `chat_id` back so you can add them from the panel. The clip is a downscaled, silent, low-frame-rate GIF — enough for a quick "what's going on right now" without straining the Zero W's WiFi.
 
 ### Calibrating the noise threshold
 
@@ -133,7 +150,7 @@ docs/adr/                     # architecture decision records
 
 ### Configuration
 
-The threshold, the sustained duration, the cooldown and Telegram (token and `chat_id`) are changed from the web panel with no restart. Everything else lives in `/etc/guaucam.conf`; after editing it, restart the services:
+The threshold, the sustained duration, the cooldown and Telegram (token and the list of registered chats) are changed from the web panel with no restart. Everything else lives in `/etc/guaucam.conf`; after editing it, restart the services:
 
 ```bash
 sudo systemctl restart guaucam-stream guaucam-detector
@@ -171,5 +188,6 @@ tailscale status
 - **No stream (USB webcam)**: check it's plugged in (`ls /dev/video*`) and look at `journalctl -u guaucam-stream`.
 - **No stream (CSI module)**: check the kernel sees the sensor (`dmesg | grep -iE 'unicam|ov5647'`). If it's not there: check the ribbon and its orientation (contacts facing the board) and remember the Pi Zero uses a 22-pin connector — the standard 15-pin cable does not fit, you need the Zero adapter cable. After reseating, reboot the Pi.
 - **The panel shows "—" as the noise level**: no microphone. CSI modules have none; plug in a USB mic (or the webcam) and the meter starts by itself within a minute.
-- **No Telegram alerts**: on the panel, Telegram alerts section, check it says "active" and press **Send test**. If the `chat_id` is missing: send any message to your bot and press **Detect chat_id**.
+- **No Telegram alerts**: on the panel, Telegram alerts section, check it says "active" and press **Send test to all**. If the chat list is empty: send any message to your bot and press **Detect chat_id**.
+- **Bot doesn't answer `/screenshot`**: the chat must be registered (check the chip list on the panel) and the token saved. Send the bot any message, press **Detect chat_id** to add yourself, and retry.
 - **Choppy video away from home**: lower `RESOLUTION` to `800x600` or `FPS` to `10` — the Zero W's 2.4GHz WiFi gives ~20-30 Mbps real and each simultaneous viewer takes 5-15 Mbps.
