@@ -740,7 +740,10 @@ const refreshTg = c => {
 let videoURL = '';
 
 fetch('/api/config').then(r => r.json()).then(c => {
-  videoURL = 'http://' + location.hostname + ':' + c.PORT + '/stream';
+  // Phones get the lores stream (csi only): on a small screen it looks the
+  // same and costs a fraction of the WiFi bandwidth
+  const low = c.CAMERA_TYPE === 'csi' && matchMedia('(max-width:780px)').matches;
+  videoURL = 'http://' + location.hostname + ':' + c.PORT + '/stream' + (low ? '?low' : '');
   if (!document.hidden) $('video').src = videoURL;
   for (const el of document.querySelectorAll('input')) {
     if (c[el.name] !== undefined) el.value = c[el.name];

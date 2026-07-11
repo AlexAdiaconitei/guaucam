@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 """MJPEG stream for CSI (ribbon) camera modules, via picamera2/libcamera.
 
-The ustreamer equivalent for ribbon cameras: serves /stream (multipart MJPEG)
-and /snapshot (current-instant JPEG) on the conf's PORT. JPEG compression is
-done by the VideoCore hardware encoder (MJPEGEncoder), not the CPU: the Zero W
-v1 (ARMv6) could not compress in software.
+The ustreamer equivalent for ribbon cameras: serves /stream (multipart MJPEG),
+/stream?low (same video from the ISP's lores output, smaller and lighter, for
+phones) and /snapshot (current-instant JPEG) on the conf's PORT. JPEG
+compression is done by the VideoCore hardware encoder (MJPEGEncoder), not the
+CPU: the Zero W v1 (ARMv6) could not compress in software.
 
 Also accepts POST /controls (JSON with CAM_*/BITRATE keys) to adjust the image
 live; the panel server validates, persists to the conf and forwards here.
@@ -47,7 +48,8 @@ class LatestFrame(io.BufferedIOBase):
             self.ready.notify_all()
 
 
-output = LatestFrame()
+output = LatestFrame()      # full-quality stream (desktop, snapshots)
+output_low = LatestFrame()  # lores stream (phones, /stream?low)
 
 # conf key → (libcamera control, cast). CAM_GAIN is handled apart (0 = auto).
 CONTROL_MAP = {
@@ -61,7 +63,18 @@ CONTROL_MAP = {
 
 picam = None
 cam_lock = threading.Lock()          # serializes set_controls/encoder swaps
-cam_state = {"bitrate": 0, "controls": {}}
+cam_state = {"bitrate": 0, "bitrate_low": 0, "controls": {}}
+
+
+def start_encoders():
+    """Camera on, one hardware MJPEG encoder per stream (main and lores)."""
+    picam.start_encoder(MJPEGEncoder(bitrate=cam_state["bitrate"]),
+                        FileOutput(output), name="main")
+    picam.start_encoder(MJPEGEncoder(bitrate=cam_state["bitrate_low"]),
+                        FileOutput(output_low), name="lores")
+    picam.start()
+    if cam_state["controls"]:
+        picam.set_controls(cam_state["controls"])
 
 
 def camera_controls(values):
@@ -82,20 +95,22 @@ class Stream(BaseHTTPRequestHandler):
     def log_message(self, *args):
         pass  # don't flood the journal with every GET
 
-    def _next_frame(self):
-        with output.ready:
-            output.ready.wait()
-            return output.frame
+    def _next_frame(self, src):
+        with src.ready:
+            src.ready.wait()
+            return src.frame
 
     def do_GET(self):
-        if self.path == "/snapshot":
-            frame = self._next_frame()
+        path, _, query = self.path.partition("?")
+        src = output_low if query == "low" else output
+        if path == "/snapshot":
+            frame = self._next_frame(output)  # snapshots always full quality
             self.send_response(200)
             self.send_header("Content-Type", "image/jpeg")
             self.send_header("Content-Length", str(len(frame)))
             self.end_headers()
             self.wfile.write(frame)
-        elif self.path in ("/", "/stream"):
+        elif path in ("/", "/stream"):
             self.send_response(200)
             self.send_header("Age", "0")
             self.send_header("Cache-Control", "no-cache, private")
@@ -104,7 +119,7 @@ class Stream(BaseHTTPRequestHandler):
             self.end_headers()
             try:
                 while True:
-                    frame = self._next_frame()
+                    frame = self._next_frame(src)
                     self.wfile.write(b"--FRAME\r\n")
                     self.wfile.write(b"Content-Type: image/jpeg\r\n")
                     self.wfile.write(
@@ -129,13 +144,11 @@ class Stream(BaseHTTPRequestHandler):
         with cam_lock:
             cam_state["controls"].update(ctrl)
             if bitrate is not None and bitrate != cam_state["bitrate"]:
-                # the bitrate lives in the encoder: swap it (viewers freeze
+                # the bitrate lives in the encoders: swap them (viewers freeze
                 # for an instant and resume on the next frame)
-                picam.stop_recording()
-                picam.start_recording(MJPEGEncoder(bitrate=bitrate),
-                                      FileOutput(output))
                 cam_state["bitrate"] = bitrate
-                picam.set_controls(cam_state["controls"])
+                picam.stop_recording()
+                start_encoders()
             elif ctrl:
                 picam.set_controls(ctrl)
         body = json.dumps({"ok": True}).encode()
@@ -150,21 +163,23 @@ def main():
     global picam
     cfg = read_config()
     width, height = (int(x) for x in cfg.get("RESOLUTION", "1280x720").split("x"))
+    lo_w, lo_h = (int(x) for x in cfg.get("RESOLUTION_LOW", "640x360").split("x"))
     fps = float(cfg.get("FPS", "15"))
     port = int(cfg.get("PORT", "8080"))
-    bitrate = int(cfg.get("BITRATE", "4000000"))
+    cam_state["bitrate"] = int(cfg.get("BITRATE", "4000000"))
+    cam_state["bitrate_low"] = int(cfg.get("BITRATE_LOW", "2500000"))
+    cam_state["controls"] = camera_controls(cfg)
 
     picam = Picamera2()
     picam.configure(picam.create_video_configuration(
         main={"size": (width, height), "format": "YUV420"},
+        lores={"size": (lo_w, lo_h), "format": "YUV420"},
         controls={"FrameRate": fps}))
-    picam.start_recording(MJPEGEncoder(bitrate=bitrate), FileOutput(output))
-    cam_state["bitrate"] = bitrate
-    cam_state["controls"] = camera_controls(cfg)
-    if cam_state["controls"]:
-        picam.set_controls(cam_state["controls"])
+    start_encoders()
 
-    print(f"CSI stream {width}x{height}@{fps:g} ~{bitrate / 1e6:g} Mbps on port {port}")
+    print(f"CSI stream {width}x{height} ~{cam_state['bitrate'] / 1e6:g} Mbps"
+          f" + low {lo_w}x{lo_h} ~{cam_state['bitrate_low'] / 1e6:g} Mbps"
+          f" @{fps:g} on port {port}")
     ThreadingHTTPServer(("0.0.0.0", port), Stream).serve_forever()
 
 
