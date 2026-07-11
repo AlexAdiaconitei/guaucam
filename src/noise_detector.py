@@ -33,6 +33,19 @@ RATE = 16000                                # Hz, mono, S16_LE
 WINDOW_SEC = 0.25
 WINDOW_BYTES = int(RATE * WINDOW_SEC) * 2
 NUMERIC_FIELDS = ("THRESHOLD_DB", "SUSTAINED_SECONDS", "COOLDOWN_SECONDS")
+# Camera image settings (CSI only): key → (min, max, default). Validated here,
+# persisted to the conf and forwarded to stream_csi.py, which applies them live.
+CAM_FIELDS = {
+    "BITRATE":        (1000000, 15000000, "4000000"),
+    "CAM_GAIN":       (0, 16, "0"),
+    "CAM_AWB":        (0, 7, "0"),
+    "CAM_BRIGHTNESS": (-1, 1, "0"),
+    "CAM_CONTRAST":   (0, 2, "1"),
+    "CAM_SATURATION": (0, 2, "1"),
+    "CAM_SHARPNESS":  (0, 2, "1"),
+    "CAM_DENOISE":    (0, 2, "1"),
+}
+CAM_INT_FIELDS = ("BITRATE", "CAM_AWB", "CAM_DENOISE")
 # Text fields editable from the panel; strict validation because they go to the conf
 TOKEN_RE = re.compile(r"^\d+:[\w-]+$")
 CHAT_ID_RE = re.compile(r"^-?\d+$")
@@ -341,6 +354,9 @@ class Panel(BaseHTTPRequestHandler):
             with cfg_lock:
                 data = {k: cfg.get(k, "") for k in NUMERIC_FIELDS}
                 data["PORT"] = cfg.get("PORT", "8080")
+                data["CAMERA_TYPE"] = cfg.get("CAMERA_TYPE", "usb")
+                for k, (_, _, default) in CAM_FIELDS.items():
+                    data[k] = cfg.get(k, default)
                 data["TELEGRAM_CHAT_IDS"] = parse_chat_ids(cfg)
                 # the token never travels to the browser: only whether it's set
                 data["TELEGRAM_TOKEN_SET"] = bool(cfg.get("TELEGRAM_TOKEN"))
@@ -353,6 +369,8 @@ class Panel(BaseHTTPRequestHandler):
             return self._detect_chat()
         if self.path == "/api/telegram/test":
             return self._test_telegram()
+        if self.path == "/api/camera":
+            return self._camera()
         if self.path != "/api/config":
             return self._json({"error": "not found"}, 404)
         try:
@@ -385,6 +403,40 @@ class Panel(BaseHTTPRequestHandler):
         with cfg_lock:
             cfg.update(changes)      # applies instantly in the audio loop
             save_config(changes)     # and persists for the next boot
+        self._json({"ok": True})
+
+    def _camera(self):
+        """Validates the CAM_*/BITRATE values, has stream_csi.py apply them
+        live and persists them so they survive a reboot."""
+        with cfg_lock:
+            if cfg.get("CAMERA_TYPE", "usb") != "csi":
+                return self._json({"error": "camera controls need CAMERA_TYPE=csi"}, 400)
+            port = cfg.get("PORT", "8080")
+        try:
+            raw = self.rfile.read(int(self.headers.get("Content-Length", 0)))
+            data = json.loads(raw)
+            changes = {}
+            for key, (lo, hi, _) in CAM_FIELDS.items():
+                if key in data:
+                    v = float(data[key])
+                    if not lo <= v <= hi:
+                        return self._json({"error": f"{key} out of range"}, 400)
+                    changes[key] = str(int(v)) if key in CAM_INT_FIELDS else f"{v:g}"
+            if not changes:
+                raise ValueError
+        except (ValueError, TypeError, json.JSONDecodeError):
+            return self._json({"error": "invalid values"}, 400)
+        req = urllib.request.Request(
+            f"http://127.0.0.1:{port}/controls",
+            data=json.dumps(changes).encode(),
+            headers={"Content-Type": "application/json"})
+        try:
+            urllib.request.urlopen(req, timeout=10)
+        except OSError:
+            return self._json({"error": "stream service not reachable"}, 502)
+        with cfg_lock:
+            cfg.update(changes)
+            save_config(changes)
         self._json({"ok": True})
 
     def _detect_chat(self):

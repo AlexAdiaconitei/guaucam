@@ -442,7 +442,7 @@
     line-height:1.35;
   }
 
-  input:not([type="range"]){
+  input:not([type="range"]),select{
     width:100%;
     padding:12px 14px;
     border:1px solid rgba(255,248,232,.18);
@@ -454,10 +454,29 @@
     transition:border-color .15s ease, box-shadow .15s ease, background .15s ease;
   }
 
-  input:not([type="range"]):focus-visible{
+  input:not([type="range"]):focus-visible,select:focus-visible{
     border-color:var(--pelaje);
     box-shadow:0 0 0 4px rgba(246,185,87,.18);
     background:rgba(6,22,46,.95);
+  }
+
+  input[type="range"]:not(.threshold-slider){
+    width:100%;
+    margin:0;
+    accent-color:var(--pelaje);
+  }
+
+  .cam-row{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    gap:10px;
+  }
+
+  .cam-val{
+    color:var(--pelaje);
+    font-size:.85rem;
+    font-weight:800;
   }
 
   .actions{
@@ -554,6 +573,48 @@
         <button type="button" class="secondary" id="btnShot">📸 Screenshot</button>
         <span id="shotMsg"></span>
       </div>
+
+      <details id="camSettings" hidden>
+        <summary>Camera settings</summary>
+        <form id="camForm">
+          <small>Applied instantly, no restart needed. Fixing the gain kills the
+            green/pink colour noise in dim light; lower the bitrate if remote
+            viewing lags, raise it if the image looks blocky.</small>
+          <label><span class="cam-row">Bitrate <output class="cam-val" id="v_BITRATE"></output></span>
+            <input type="range" name="BITRATE" min="1" max="15" step="0.5"></label>
+          <label><span class="cam-row">Sensor gain <output class="cam-val" id="v_CAM_GAIN"></output></span>
+            <input type="range" name="CAM_GAIN" min="0" max="16" step="0.5"></label>
+          <label>White balance
+            <select name="CAM_AWB">
+              <option value="0">Auto</option>
+              <option value="1">Incandescent</option>
+              <option value="2">Tungsten</option>
+              <option value="3">Fluorescent</option>
+              <option value="4">Indoor</option>
+              <option value="5">Daylight</option>
+              <option value="6">Cloudy</option>
+            </select></label>
+          <label><span class="cam-row">Brightness <output class="cam-val" id="v_CAM_BRIGHTNESS"></output></span>
+            <input type="range" name="CAM_BRIGHTNESS" min="-1" max="1" step="0.05"></label>
+          <label><span class="cam-row">Contrast <output class="cam-val" id="v_CAM_CONTRAST"></output></span>
+            <input type="range" name="CAM_CONTRAST" min="0" max="2" step="0.05"></label>
+          <label><span class="cam-row">Saturation <output class="cam-val" id="v_CAM_SATURATION"></output></span>
+            <input type="range" name="CAM_SATURATION" min="0" max="2" step="0.05"></label>
+          <label><span class="cam-row">Sharpness <output class="cam-val" id="v_CAM_SHARPNESS"></output></span>
+            <input type="range" name="CAM_SHARPNESS" min="0" max="2" step="0.05"></label>
+          <label>Noise reduction
+            <select name="CAM_DENOISE">
+              <option value="0">Off</option>
+              <option value="1">Fast</option>
+              <option value="2">High quality</option>
+            </select></label>
+          <div class="actions">
+            <button>Save</button>
+            <button type="button" class="secondary" id="btnCamReset">Defaults</button>
+            <span id="camMsg"></span>
+          </div>
+        </form>
+      </details>
     </article>
 
     <aside class="card status-card">
@@ -686,7 +747,51 @@ fetch('/api/config').then(r => r.json()).then(c => {
   }
   paintThreshold(c.THRESHOLD_DB);
   refreshTg(c);
+  fillCam(c);
 });
+
+// Camera settings (CSI only: ustreamer relays the USB webcam's own JPEG,
+// there is nothing to adjust server-side)
+const camForm = $('camForm');
+const CAM_FMT = {
+  BITRATE: v => v + ' Mbps',
+  CAM_GAIN: v => Number(v) === 0 ? 'auto' : v + '×',
+};
+const paintCam = () => {
+  for (const el of camForm.querySelectorAll('input[type=range]')) {
+    $('v_' + el.name).textContent = (CAM_FMT[el.name] || (v => v))(el.value);
+  }
+};
+camForm.addEventListener('input', paintCam);
+
+const fillCam = c => {
+  if (c.CAMERA_TYPE !== 'csi') return;
+  $('camSettings').hidden = false;
+  for (const el of camForm.elements) {
+    if (!el.name || c[el.name] === undefined) continue;
+    el.value = el.name === 'BITRATE' ? Number(c.BITRATE) / 1e6 : c[el.name];
+  }
+  paintCam();
+};
+
+camForm.onsubmit = async e => {
+  e.preventDefault();
+  const data = Object.fromEntries(new FormData(camForm));
+  data.BITRATE = String(Math.round(Number(data.BITRATE) * 1e6));
+  $('camMsg').textContent = 'Applying...';
+  const r = await fetch('/api/camera', {method: 'POST',
+    headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data)});
+  const j = await r.json().catch(() => ({}));
+  $('camMsg').textContent = r.ok ? ' ✔ Saved and applied' : ' ✖ ' + (j.error || 'Error');
+  setTimeout(() => $('camMsg').textContent = '', 4000);
+};
+
+$('btnCamReset').onclick = () => {
+  const defs = {BITRATE: 4, CAM_GAIN: 0, CAM_AWB: 0, CAM_BRIGHTNESS: 0,
+                CAM_CONTRAST: 1, CAM_SATURATION: 1, CAM_SHARPNESS: 1, CAM_DENOISE: 1};
+  for (const el of camForm.elements) if (el.name in defs) el.value = defs[el.name];
+  paintCam();
+};
 
 // No mic = no noise level to configure: hide the meter and the alert settings
 // and say so clearly; everything returns by itself when a mic shows up
