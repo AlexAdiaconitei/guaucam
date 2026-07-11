@@ -19,7 +19,7 @@
 # Also works from a local clone of the repo:
 #   git clone <repo> && sudo bash guaucam/install.sh
 #
-# Re-running it updates the code (git pull) without touching your configuration.
+# Re-running it updates the code to origin/main without touching your configuration.
 
 set -euo pipefail
 
@@ -101,12 +101,13 @@ fi
 echo "==> [3/8] Downloading the code into ${APP_DIR}..."
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" 2>/dev/null && pwd || echo /nonexistent)"
 if [[ -d "$APP_DIR/.git" ]]; then
-    echo "    Already there: updating (git pull)..."
+    echo "    Already there: updating to origin/main..."
     # /opt/guaucam is a deploy copy (your config lives in /etc): ignore
-    # permission-bit drift and discard any local edits so updates never conflict
+    # permission-bit drift and mirror the remote exactly, so updates never
+    # conflict even after local edits or a force-pushed remote
     git -C "$APP_DIR" config core.fileMode false
-    git -C "$APP_DIR" checkout -f -- .
-    git -C "$APP_DIR" pull --ff-only
+    git -C "$APP_DIR" fetch --depth 1 origin main
+    git -C "$APP_DIR" reset --hard origin/main
 elif [[ -f "$SCRIPT_DIR/src/noise_detector.py" ]]; then
     echo "    Using the local copy of the repo (${SCRIPT_DIR})..."
     mkdir -p "$APP_DIR"

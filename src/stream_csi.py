@@ -90,14 +90,15 @@ def main():
     width, height = (int(x) for x in cfg.get("RESOLUTION", "1280x720").split("x"))
     fps = float(cfg.get("FPS", "15"))
     port = int(cfg.get("PORT", "8080"))
+    bitrate = int(cfg.get("BITRATE", "4000000"))
 
     picam = Picamera2()
     picam.configure(picam.create_video_configuration(
         main={"size": (width, height), "format": "YUV420"},
         controls={"FrameRate": fps}))
-    picam.start_recording(MJPEGEncoder(), FileOutput(output))
+    picam.start_recording(MJPEGEncoder(bitrate=bitrate), FileOutput(output))
 
-    print(f"CSI stream {width}x{height}@{fps:g} on port {port}")
+    print(f"CSI stream {width}x{height}@{fps:g} ~{bitrate / 1e6:g} Mbps on port {port}")
     ThreadingHTTPServer(("0.0.0.0", port), Stream).serve_forever()
 
 
