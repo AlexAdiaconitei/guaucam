@@ -30,9 +30,10 @@ CONF="/etc/guaucam.conf"
 
 [[ $EUID -eq 0 ]] || { echo "Run with sudo: sudo bash $0"; exit 1; }
 
-echo "==> [1/8] Installing packages (ustreamer, alsa-utils, python3, curl, git)..."
+echo "==> [1/8] Installing packages (ustreamer, alsa-utils, python3, python3-pil, curl, git)..."
 apt-get update
-if ! apt-get install -y ustreamer alsa-utils python3 curl git; then
+# python3-pil (Pillow): builds the short GIF clip for the bot's /video command
+if ! apt-get install -y ustreamer alsa-utils python3 python3-pil curl git; then
     echo "ERROR: packages could not be installed. Is this Raspberry Pi OS Bookworm?" >&2
     exit 1
 fi
@@ -191,6 +192,12 @@ if [[ -f "$CONF" ]]; then
     grep -q '^PANEL_PORT=' "$CONF" || echo "PANEL_PORT=8081" >> "$CONF"
     grep -q '^CAMERA_TYPE=' "$CONF" || echo "CAMERA_TYPE=usb" >> "$CONF"
     grep -q '^VIDEO_DEVICE=' "$CONF" || echo "VIDEO_DEVICE=/dev/video0" >> "$CONF"
+    # Migrate the old single-chat key to the multi-chat list (keeps the value)
+    if ! grep -q '^TELEGRAM_CHAT_IDS=' "$CONF"; then
+        OLD_CHAT=$(grep -oP '^TELEGRAM_CHAT_ID=\K.*' "$CONF" 2>/dev/null || true)
+        echo "TELEGRAM_CHAT_IDS=${OLD_CHAT}" >> "$CONF"
+    fi
+    grep -q '^TELEGRAM_TOKEN=' "$CONF" || echo "TELEGRAM_TOKEN=" >> "$CONF"
 else
     cp "$APP_DIR/src/guaucam.conf" "$CONF"
     chmod 600 "$CONF"   # it will hold the Telegram token
@@ -203,7 +210,9 @@ if [[ -n "$USB_DEV" ]]; then
 fi
 if [[ -n "$TELEGRAM_TOKEN" ]]; then
     sed -i "s|^TELEGRAM_TOKEN=.*|TELEGRAM_TOKEN=${TELEGRAM_TOKEN}|" "$CONF"
-    sed -i "s|^TELEGRAM_CHAT_ID=.*|TELEGRAM_CHAT_ID=${TELEGRAM_CHAT_ID}|" "$CONF"
+    if [[ -n "$TELEGRAM_CHAT_ID" ]]; then
+        sed -i "s|^TELEGRAM_CHAT_IDS=.*|TELEGRAM_CHAT_IDS=${TELEGRAM_CHAT_ID}|" "$CONF"
+    fi
 fi
 
 echo "==> [7/8] Installing systemd services..."
@@ -214,11 +223,16 @@ systemctl restart guaucam-stream.service guaucam-detector.service
 
 echo "==> [8/8] Done."
 source "$CONF"
-if [[ -n "${TELEGRAM_TOKEN:-}" && -n "${TELEGRAM_CHAT_ID:-}" ]]; then
-    curl -s --max-time 15 \
-        -d "chat_id=${TELEGRAM_CHAT_ID}" \
-        -d "text=✅ GuauCam installed. I'll alert you when noise stays above ${THRESHOLD_DB} dB." \
-        "https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage" >/dev/null || true
+if [[ -n "${TELEGRAM_TOKEN:-}" && -n "${TELEGRAM_CHAT_IDS:-}" ]]; then
+    IFS=',' read -ra _CHATS <<< "$TELEGRAM_CHAT_IDS"
+    for _chat in "${_CHATS[@]}"; do
+        _chat="${_chat// /}"
+        [[ -n "$_chat" ]] || continue
+        curl -s --max-time 15 \
+            -d "chat_id=${_chat}" \
+            -d "text=✅ GuauCam installed. I'll alert you when noise stays above ${THRESHOLD_DB} dB." \
+            "https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage" >/dev/null || true
+    done
     AVISOS_MSG="active (test message sent to your Telegram)"
 else
     AVISOS_MSG="DISABLED: open the web panel, «Telegram alerts» section:

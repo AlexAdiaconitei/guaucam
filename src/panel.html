@@ -355,6 +355,48 @@
     line-height:1.45;
   }
 
+  #chatList{
+    list-style:none;
+    margin:8px 0 4px;
+    padding:0;
+    display:flex;
+    flex-wrap:wrap;
+    gap:8px;
+  }
+
+  #chatList li{
+    display:inline-flex;
+    align-items:center;
+    gap:8px;
+    padding:6px 8px 6px 12px;
+    border:1px solid var(--linea);
+    border-radius:999px;
+    background:rgba(6,22,46,.5);
+    font-size:.9rem;
+    font-weight:800;
+  }
+
+  #chatList li.empty{
+    color:rgba(255,248,232,.55);
+    border-style:dashed;
+    font-weight:600;
+  }
+
+  .chip-x{
+    padding:0;
+    width:20px;
+    height:20px;
+    border-radius:50%;
+    color:#fff;
+    background:rgba(225,84,63,.85);
+    box-shadow:none;
+    font:900 .7rem/1 "Segoe UI",system-ui,sans-serif;
+  }
+
+  .chip-x:hover{transform:none;background:var(--peligro);box-shadow:none}
+
+  #chatInput{max-width:220px}
+
   [hidden]{display:none!important}
 
   .notice{
@@ -551,16 +593,21 @@
           <label>Bot token
             <input type="password" name="TELEGRAM_TOKEN" autocomplete="off"
                    placeholder="123456789:ABC..."></label>
-          <label>chat_id
-            <input type="text" name="TELEGRAM_CHAT_ID" inputmode="numeric"
-                   placeholder="press Detect after messaging your bot"></label>
+          <div class="actions"><button>Save token</button></div>
+        </form>
+        <div class="chatids">
+          <small>Registered chats — everyone here gets alerts and can use the bot
+            commands (/screenshot, /video, /live).</small>
+          <ul id="chatList"></ul>
           <div class="actions">
-            <button>Save</button>
+            <input type="text" id="chatInput" inputmode="numeric"
+                   placeholder="chat_id">
+            <button type="button" class="secondary" id="btnAddChat">Add</button>
             <button type="button" class="secondary" id="btnDetect">Detect chat_id</button>
-            <button type="button" class="secondary" id="btnTest">Send test</button>
+            <button type="button" class="secondary" id="btnTest">Send test to all</button>
           </div>
           <span id="tgMsg"></span>
-        </form>
+        </div>
       </details>
     </aside>
   </section>
@@ -590,8 +637,33 @@ threshold.addEventListener('input', () => {
   paintAlert(Number(threshold.value));
 });
 
+let chatIds = [];
+
+const renderChats = () => {
+  const ul = $('chatList');
+  ul.innerHTML = '';
+  if (!chatIds.length) {
+    ul.innerHTML = '<li class="empty">none yet — add one or press Detect</li>';
+    return;
+  }
+  for (const id of chatIds) {
+    const li = document.createElement('li');
+    li.append(id);
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'chip-x';
+    b.textContent = '✕';
+    b.title = 'remove ' + id;
+    b.onclick = () => removeChat(id);
+    li.append(b);
+    ul.append(li);
+  }
+};
+
 const refreshTg = c => {
-  const active = c.TELEGRAM_TOKEN_SET && c.TELEGRAM_CHAT_ID;
+  chatIds = c.TELEGRAM_CHAT_IDS || [];
+  renderChats();
+  const active = c.TELEGRAM_TOKEN_SET && chatIds.length;
   $('tgStatus').textContent = active ? 'active' : 'not set';
   $('tgStatus').classList.toggle('ok', !!active);
   if (c.TELEGRAM_TOKEN_SET) {
@@ -696,19 +768,41 @@ const tgNotice = (text, isError) => {
 };
 const reloadTg = async () => refreshTg(await (await fetch('/api/config')).json());
 
+const saveChats = async () => {
+  const r = await fetch('/api/config', {method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({TELEGRAM_CHAT_IDS: chatIds})});
+  const j = await r.json().catch(() => ({}));
+  if (r.ok) { renderChats(); reloadTg(); }
+  else { tgNotice('✖ ' + (j.error || 'Error'), true); reloadTg(); }
+  return r.ok;
+};
+
+const addChat = async id => {
+  id = (id || '').trim();
+  if (!/^-?\d+$/.test(id)) return tgNotice('Invalid chat_id', true);
+  if (chatIds.includes(id)) return tgNotice('Already registered', true);
+  chatIds.push(id);
+  if (await saveChats()) tgNotice('✔ Added ' + id);
+};
+
+const removeChat = async id => {
+  chatIds = chatIds.filter(x => x !== id);
+  if (await saveChats()) tgNotice('✔ Removed ' + id);
+};
+
+$('btnAddChat').onclick = () => { addChat($('chatInput').value); $('chatInput').value = ''; };
+
 $('tgForm').onsubmit = async e => {
   e.preventDefault();
-  const data = {};
-  for (const [k, v] of new FormData(e.target)) if (v.trim()) data[k] = v.trim();
-  if (!Object.keys(data).length) return tgNotice('Nothing to save', true);
+  const tok = e.target.elements.TELEGRAM_TOKEN.value.trim();
+  if (!tok) return tgNotice('Enter a token', true);
   const r = await fetch('/api/config', {method: 'POST',
-    headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data)});
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({TELEGRAM_TOKEN: tok})});
   const j = await r.json().catch(() => ({}));
-  tgNotice(r.ok ? '✔ Saved and applied' : '✖ ' + (j.error || 'Error'), !r.ok);
-  if (r.ok) {
-    e.target.elements.TELEGRAM_TOKEN.value = '';
-    reloadTg();
-  }
+  tgNotice(r.ok ? '✔ Token saved and applied' : '✖ ' + (j.error || 'Error'), !r.ok);
+  if (r.ok) { e.target.elements.TELEGRAM_TOKEN.value = ''; reloadTg(); }
 };
 
 $('btnDetect').onclick = async () => {
@@ -716,8 +810,9 @@ $('btnDetect').onclick = async () => {
   const r = await fetch('/api/telegram/detect', {method: 'POST'});
   const j = await r.json().catch(() => ({}));
   if (r.ok) {
-    document.querySelector('[name=TELEGRAM_CHAT_ID]').value = j.chat_id;
-    tgNotice('✔ chat_id detected and saved: ' + j.chat_id);
+    chatIds = j.chat_ids || [];
+    renderChats();
+    tgNotice('✔ Added ' + j.chat_id);
     reloadTg();
   } else {
     tgNotice('✖ ' + (j.error || 'Error'), true);
