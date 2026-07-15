@@ -69,7 +69,6 @@
       filter:drop-shadow(0 6px 16px rgba(246,185,87,.22));
     }
 
-    .nav-links .ti,
     .button .ti,
     .pill .ti{
       font-size:1.05rem;
@@ -162,14 +161,7 @@
       background:linear-gradient(135deg, var(--pelaje), #ffe08a);
     }
 
-    .nav-links{
-      display:flex;
-      gap:8px;
-      flex-wrap:wrap;
-      justify-content:flex-end;
-    }
 
-    .nav-links a,
     .pill{
       display:inline-flex;
       align-items:center;
@@ -183,8 +175,8 @@
       font-weight:800;
     }
 
-    .nav-links a:hover,
-    .nav-links a:focus-visible{
+    .header-github:hover,
+    .header-github:focus-visible{
       color:#fff;
       border-color:rgba(246,185,87,.5);
       outline:none;
@@ -255,6 +247,23 @@
       box-shadow:none;
     }
 
+    .button.kofi{
+      gap:10px;
+      color:#fff;
+      background:linear-gradient(135deg, #13c3ff, #0789ba);
+      box-shadow:0 12px 28px rgba(19,195,255,.24);
+    }
+
+    .button.kofi .ti{
+      display:grid;
+      width:26px;
+      height:26px;
+      place-items:center;
+      border-radius:50%;
+      color:#ff5e5b;
+      background:#fff;
+    }
+
     .button:hover,.button:focus-visible{transform:translateY(-1px);outline:3px solid rgba(255,248,232,.22);outline-offset:3px}
 
     .hero-card{
@@ -269,7 +278,8 @@
     }
 
     .hero-card::after,
-    .section-card::after{
+    .section-card::after,
+    .about-card::after{
       content:"";
       position:absolute;
       inset:auto 22px 0;
@@ -388,7 +398,8 @@
     .section-card,
     .step,
     .terminal,
-    .note{
+    .note,
+    .about-card{
       position:relative;
       overflow:hidden;
       border:1px solid var(--linea);
@@ -528,6 +539,76 @@
 
     .note strong{color:#ffe08a}
 
+    .about-card{
+      display:grid;
+      grid-template-columns:minmax(220px, 320px) minmax(0, 1fr);
+      gap:clamp(24px, 5vw, 58px);
+      align-items:center;
+      padding:clamp(22px, 4vw, 42px);
+    }
+
+    .about-photo-frame{
+      position:relative;
+      width:min(100%, 320px);
+      justify-self:center;
+    }
+
+    .about-photo{
+      display:block;
+      width:100%;
+      aspect-ratio:3 / 4;
+      object-fit:cover;
+      border:3px solid rgba(255,248,232,.88);
+      border-radius:34% 66% 35% 65% / 58% 36% 64% 42%;
+      box-shadow:0 0 0 10px rgba(79,147,73,.13), 0 22px 54px rgba(0,0,0,.34);
+    }
+
+    .about-copy{min-width:0}
+
+    .about-copy h2{
+      margin-bottom:18px;
+      font-size:clamp(2.5rem, 6vw, 5.2rem);
+    }
+
+    .about-bio{
+      max-width:48rem;
+      color:rgba(255,248,232,.78);
+      font-size:clamp(1rem, 1.8vw, 1.16rem);
+    }
+
+    .about-facts{
+      display:flex;
+      flex-wrap:wrap;
+      gap:9px;
+      margin:22px 0;
+      padding:0;
+      list-style:none;
+    }
+
+    .about-facts li{
+      padding:8px 12px;
+      border:1px solid rgba(116,195,101,.28);
+      border-radius:999px;
+      color:#ccebc5;
+      background:rgba(79,147,73,.13);
+      font-size:.86rem;
+      font-weight:800;
+    }
+
+    .about-links{
+      display:flex;
+      flex-wrap:wrap;
+      gap:9px;
+    }
+
+    .about-links .pill:hover,
+    .about-links .pill:focus-visible{
+      color:#fff;
+      border-color:rgba(246,185,87,.5);
+      outline:none;
+      transform:translateY(-1px);
+    }
+
     .footer{
       display:flex;
       align-items:center;
@@ -538,24 +619,37 @@
       border-top:1px solid var(--linea);
     }
 
+    .footer-actions{
+      display:flex;
+      flex-wrap:wrap;
+      justify-content:flex-end;
+      gap:9px;
+    }
+
     @media (max-width:900px){
-      .hero,.install-grid{grid-template-columns:1fr}
+      .hero,.install-grid,.about-card{grid-template-columns:1fr}
       .cards,.flow,.usage{grid-template-columns:1fr 1fr}
       .section-head{display:block}
       .nav{align-items:flex-start;flex-direction:column}
-      .nav-tools,.nav-links{justify-content:flex-start}
+      .nav-tools{justify-content:flex-start}
     }
 
     @media (max-width:620px){
       .page{padding:18px}
       .hero{gap:22px}
       .cards,.flow,.usage,.requirements{grid-template-columns:1fr}
-      .mark img{width:48px;height:48px}
-      .nav-links a,.lang-button{font-size:.82rem}
+      .mark{gap:8px;font-size:1.05rem}
+      .mark img{width:44px;height:44px}
+      .nav{align-items:center;flex-direction:row;gap:8px}
+      .nav-tools{margin-left:auto;gap:8px;flex-wrap:nowrap}
+      .header-github{padding:9px}
+      .header-github span{display:none}
+      .lang-button{font-size:.82rem}
       .step{padding-left:62px}
       h1{font-size:clamp(3rem, 22vw, 5.2rem)}
       .hero-actions .button{width:100%}
       .footer{display:block}
+      .footer-actions{justify-content:flex-start;margin-top:16px}
     }
 
     @media (prefers-reduced-motion:reduce){
@@ -572,12 +666,7 @@
         <span>GuauCam</span>
       </a>
       <div class="nav-tools">
-        <div class="nav-links">
-          <a href="#how-it-works"><i class="ti ti-route section-icon" aria-hidden="true"></i><span data-i18n="navHow">How it works</span></a>
-          <a href="#install"><i class="ti ti-download section-icon" aria-hidden="true"></i><span data-i18n="navInstall">Install</span></a>
-          <a href="#usage"><i class="ti ti-device-mobile section-icon" aria-hidden="true"></i><span data-i18n="navUsage">Use</span></a>
-          <a href="#configuration"><i class="ti ti-adjustments section-icon" aria-hidden="true"></i><span data-i18n="navConfigure">Configure</span></a>
-        </div>
+        <a class="pill header-github" href="https://github.com/AlexAdiaconitei/guaucam" target="_blank" rel="noopener noreferrer" aria-label="GuauCam on GitHub"><i class="ti ti-brand-github section-icon" aria-hidden="true"></i><span>GitHub</span></a>
         <div class="language-switch" aria-label="Language" data-i18n-aria="languageAria">
           <button class="lang-button is-active" type="button" data-lang="en" aria-pressed="true">EN</button>
           <button class="lang-button" type="button" data-lang="es" aria-pressed="false">ES</button>
@@ -593,7 +682,7 @@
           <p class="hero-copy" data-i18n="heroCopy">GuauCam turns a Raspberry Pi Zero W and a camera (USB webcam or CSI module) into a private dashboard with live video, a noise meter and Telegram alerts when your dogs bark too much.</p>
           <div class="hero-actions">
             <a class="button" href="#install"><i class="ti ti-download" aria-hidden="true"></i><span data-i18n="ctaInstall">Install on the Pi</span></a>
-            <a class="button secondary" href="#how-it-works"><i class="ti ti-sitemap section-icon" aria-hidden="true"></i><span data-i18n="ctaArchitecture">See the architecture</span></a>
+            <a class="button kofi" href="https://ko-fi.com/K3Q5236GOO" target="_blank" rel="noopener noreferrer"><i class="ti ti-coffee" aria-hidden="true"></i><span data-i18n="ctaKofi">Support on Ko-fi</span></a>
           </div>
         </div>
 
@@ -733,11 +822,37 @@ sudo systemctl restart guaucam-stream guaucam-detector</pre>
           <article class="section-card"><h3 class="icon-label"><i class="ti ti-cpu section-icon" aria-hidden="true"></i><span data-i18n="limitPiTitle">Realistic Pi Zero</span></h3><p data-i18n="limitPiCopy">If it stutters away from home, drop to 800x600 or 10 FPS. The 2.4 GHz WiFi sets the limit.</p></article>
         </div>
       </section>
+
+      <section class="section" id="about" aria-labelledby="about-title">
+        <article class="about-card">
+          <div class="about-photo-frame">
+            <img class="about-photo" src="alex.webp" alt="Alex Adiaconitei sitting on stone steps" data-i18n-alt="aboutPhotoAlt">
+          </div>
+          <div class="about-copy">
+            <p class="eyebrow" data-i18n="aboutEyebrow">About the creator</p>
+            <h2 id="about-title">Alex Adiaconitei</h2>
+            <p class="about-bio" data-i18n="aboutBio">Software engineer specialized in backend development with Java and Spring Boot, comfortable working with JavaScript and Python. I enjoy building personal projects to keep learning, with a growing interest in infrastructure.</p>
+            <ul class="about-facts">
+              <li data-i18n="aboutFactRole">Backend Software Engineer</li>
+              <li data-i18n="aboutFactStack">Java, Spring Boot, JavaScript, Python</li>
+              <li data-i18n="aboutFactLocation">Remote</li>
+            </ul>
+            <nav class="about-links" aria-label="Alex Adiaconitei online" data-i18n-aria="aboutLinksAria">
+              <a class="pill" href="https://github.com/AlexAdiaconitei" target="_blank" rel="noopener noreferrer"><i class="ti ti-brand-github section-icon" aria-hidden="true"></i><span>GitHub</span></a>
+              <a class="pill" href="https://www.linkedin.com/in/alexadiaconitei/" target="_blank" rel="noopener noreferrer"><i class="ti ti-brand-linkedin section-icon" aria-hidden="true"></i><span>LinkedIn</span></a>
+              <a class="pill" href="https://ko-fi.com/K3Q5236GOO" target="_blank" rel="noopener noreferrer"><i class="ti ti-coffee section-icon" aria-hidden="true"></i><span>Ko-fi</span></a>
+            </nav>
+          </div>
+        </article>
+      </section>
     </main>
 
     <footer class="footer">
       <span data-i18n="footerCopy">GuauCam — camera, Pi Zero W, Tailscale and Telegram.</span>
-      <a class="pill" href="#install"><i class="ti ti-download section-icon" aria-hidden="true"></i><span data-i18n="footerCta">Install now</span></a>
+      <div class="footer-actions">
+        <a class="pill" href="#install"><i class="ti ti-download section-icon" aria-hidden="true"></i><span data-i18n="footerCta">Install now</span></a>
+        <a class="pill" href="https://github.com/AlexAdiaconitei/guaucam" target="_blank" rel="noopener noreferrer"><i class="ti ti-brand-github section-icon" aria-hidden="true"></i><span>GitHub</span></a>
+      </div>
     </footer>
 
     <script>
@@ -748,15 +863,11 @@ sudo systemctl restart guaucam-stream guaucam-detector</pre>
           navAria: "Main navigation",
           homeAria: "GuauCam home",
           languageAria: "Language",
-          navHow: "How it works",
-          navInstall: "Install",
-          navUsage: "Use",
-          navConfigure: "Configure",
           eyebrow: "Private camera + bark detector",
           heroTitle: "Check that they are okay.",
           heroCopy: "GuauCam turns a Raspberry Pi Zero W and a camera (USB webcam or CSI module) into a private dashboard with live video, a noise meter and Telegram alerts when your dogs bark too much.",
           ctaInstall: "Install on the Pi",
-          ctaArchitecture: "See the architecture",
+          ctaKofi: "Support on Ko-fi",
           previewAria: "GuauCam dashboard preview",
           logoAlt: "GuauCam logo",
           meterCopy: "The yellow mark is your threshold. If the bar stays above it for several seconds, you get an alert.",
@@ -831,6 +942,13 @@ sudo systemctl restart guaucam-stream guaucam-detector</pre>
           limitBarksCopy: "It measures volume. A vacuum or construction noise can trigger alerts; threshold and duration reduce false positives.",
           limitPiTitle: "Realistic Pi Zero",
           limitPiCopy: "If it stutters away from home, drop to 800x600 or 10 FPS. The 2.4 GHz WiFi sets the limit.",
+          aboutEyebrow: "About the creator",
+          aboutPhotoAlt: "Alex Adiaconitei sitting on stone steps",
+          aboutBio: "Software engineer specialized in backend development with Java and Spring Boot, comfortable working with JavaScript and Python. I enjoy building personal projects to keep learning, with a growing interest in infrastructure.",
+          aboutFactRole: "Backend Software Engineer",
+          aboutFactStack: "Java, Spring Boot, JavaScript, Python",
+          aboutFactLocation: "Remote",
+          aboutLinksAria: "Alex Adiaconitei online",
           footerCopy: "GuauCam — camera, Pi Zero W, Tailscale and Telegram.",
           footerCta: "Install now"
         },
@@ -840,15 +958,11 @@ sudo systemctl restart guaucam-stream guaucam-detector</pre>
           navAria: "Navegación principal",
           homeAria: "GuauCam inicio",
           languageAria: "Idioma",
-          navHow: "Cómo funciona",
-          navInstall: "Instalar",
-          navUsage: "Uso",
-          navConfigure: "Configurar",
           eyebrow: "Cámara privada + detector de ladridos",
           heroTitle: "Mira si están bien.",
           heroCopy: "GuauCam convierte una Raspberry Pi Zero W y una cámara (webcam USB o módulo CSI) en un panel privado con vídeo en directo, medidor de ruido y avisos por Telegram cuando tus perros ladran de más.",
           ctaInstall: "Instalar en la Pi",
-          ctaArchitecture: "Ver arquitectura",
+          ctaKofi: "Apoya en Ko-fi",
           previewAria: "Vista previa del panel GuauCam",
           logoAlt: "Logo de GuauCam",
           meterCopy: "La marca amarilla es tu umbral. Si la barra lo supera durante varios segundos, recibes un aviso.",
@@ -923,6 +1037,13 @@ sudo systemctl restart guaucam-stream guaucam-detector</pre>
           limitBarksCopy: "Mide volumen. Una aspiradora u obras pueden disparar avisos; umbral y duración reducen falsos positivos.",
           limitPiTitle: "Pi Zero realista",
           limitPiCopy: "Si fuera de casa va a tirones, baja a 800x600 o 10 FPS. El WiFi 2.4 GHz manda.",
+          aboutEyebrow: "Sobre el creador",
+          aboutPhotoAlt: "Alex Adiaconitei sentado en unas escaleras de piedra",
+          aboutBio: "Software engineer especializado en backend con Java y Spring Boot, con soltura en JavaScript y Python. Disfruto creando proyectos personales para seguir aprendiendo, con un interés creciente en el mundo de la infraestructura.",
+          aboutFactRole: "[Backend Software Engineer]",
+          aboutFactStack: "[Java, Spring Boot, JavaScript, Python]",
+          aboutFactLocation: "[Remoto]",
+          aboutLinksAria: "Perfiles de Alex Adiaconitei",
           footerCopy: "GuauCam — cámara, Pi Zero W, Tailscale y Telegram.",
           footerCta: "Instalar ahora"
         }
