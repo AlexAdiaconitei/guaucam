@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="guaucam.png" alt="GuauCam" width="280">
+  <img src="assets/guaucam.webp" alt="GuauCam" width="280">
 
 # GuauCam
 
